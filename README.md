@@ -23,6 +23,54 @@ It supports both **Frontier models** (OpenAI, Google) and **Small models** (loca
 
 ---
 
+## 🚀 Quick Start
+
+Follow these steps to download and run the project locally:
+
+### 1. Clone the Repository
+If you have SSH access:
+   ```bash
+   git clone git@github.com:<YOUR_USERNAME>/<YOUR_REPO_NAME>.git
+   ```
+### 2. Navigate to the project
+   ```bash
+   cd <YOUR_REPO_NAME>
+   ```
+###. 3. Create and Activate a Virtual Environment
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate   # Mac/Linux
+   venv\Scripts\activate      # Windows
+   ```
+### 4. Install Dependencies    
+   ```bash
+   pip install -r requirements.txt
+   ```
+### 5. Set API Keys  
+You need at least one API key to run the app with hosted models. Set them as environment variables:
+
+Mac/Linux (bash/zsh):
+   ```bash
+   export OPENAI_API_KEY="your-openai-key"
+   export GOOGLE_API_KEY="your-google-key"
+   ```
+Windows (Powershell):
+   ```bash
+   csetx OPENAI_API_KEY "your-openai-key"
+   setx GOOGLE_API_KEY "your-google-key"
+   ```
+If you want to use local models with Ollama, install it from https://ollama.ai and run:
+   ```bash
+   ollama serve
+   ollama pull gemma2:9b
+   ollama pull llama3:8b
+   ```
+###. 6. Run the App
+   ```bash
+   streamlit run app/ui.py
+   ```
+---
+
 ## Requirements
 
 - Python 3.9+  
