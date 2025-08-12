@@ -113,8 +113,8 @@ else:
     chosen = f"ollama:{small_model}"
 
 # =================== MAIN TABS ===================
-tab1, tab2, tab3 = st.tabs(
-    ["Single Question (Transparency)", "Batch Evaluation", "Results & Analysis"]
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["Single Question (Transparency)", "Batch Evaluation", "Results & Analysis", "MMLU Dataset Browser"]
 )
 
 # ------------- Tab 1 -------------
@@ -576,3 +576,37 @@ with tab3:
                 "- **p50 latency** = median per-question wall time (batch runs only, by default). If missing, run batch to record it.\n"
                 "- **n** = number of questions included in the aggregate for that row."
             )
+with tab4:
+    st.header("MMLU Dataset Browser")
+
+    # Subject dropdown
+    subject = st.selectbox("Choose subject", SUBJECTS)
+
+    # Cache dataset loading for speed
+    @st.cache_data
+    def load_subject_data(subj):
+        return load_dataset("cais/mmlu", subj)["test"]
+
+    ds = load_subject_data(subject)
+
+    # Question selector (dropdown for nicer navigation)
+    q_index = st.selectbox(
+        "Choose question number",
+        list(range(len(ds))),
+        format_func=lambda x: f"Question {x + 1}"
+    )
+
+    # Fetch the question data
+    row = ds[q_index]
+
+    # Display question text
+    st.subheader(f"Question {q_index + 1}")
+    st.write(row["question"])
+
+    # Display choices
+    choices_labels = ["A", "B", "C", "D"]
+    for label, choice in zip(choices_labels, row["choices"]):
+        st.write(f"**{label}**: {choice}")
+
+    # Show correct answer
+    st.markdown(f"**Correct answer:** {choices_labels[row['answer']]}")
