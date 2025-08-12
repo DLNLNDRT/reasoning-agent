@@ -44,16 +44,19 @@ It supports both **Frontier models** (OpenAI, Google) and **Small models** (loca
    cd YOUR_REPO
 
 2. Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate   # macOS/Linux
-venv\Scripts\activate      # Windows
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate   # macOS/Linux
+   venv\Scripts\activate      # Windows
 
 3. Install dependencies
-pip install -r requirements.txt
+   ```bash
+   pip install -r requirements.txt
 
 4. Set your API keys (replace with your keys)
-export OPENAI_API_KEY="your_openai_key"
-export GOOGLE_API_KEY="your_google_key"
+   ```bash
+   export OPENAI_API_KEY="your_openai_key"
+   export GOOGLE_API_KEY="your_google_key"
 
 5. For local models, install and run Ollama:
 Download Ollama -> https://ollama.com/download
