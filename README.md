@@ -59,11 +59,12 @@ It supports both **Frontier models** (OpenAI, Google) and **Small models** (loca
    export GOOGLE_API_KEY="your_google_key"
 
 5. For local models, install and run Ollama:
-Download Ollama -> https://ollama.com/download
-Start the server:
-ollama serve
-Pull the model you want to use:
-ollama pull gemma2:9b
+   ```bash 
+   Download Ollama -> https://ollama.com/download
+  Start the server:
+   ollama serve
+  Pull the model you want to use:
+   ollama pull gemma2:9b
 
 
 Running the App
