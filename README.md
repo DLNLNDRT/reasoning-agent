@@ -63,11 +63,9 @@ It supports both **Frontier models** (OpenAI, Google) and **Small models** (loca
    Download Ollama -> https://ollama.com/download
 
    Start the server:
-   ```bash
    ollama serve
 
    Pull the model you want to use:
-   ```bash 
    ollama pull gemma2:9b
 
 
