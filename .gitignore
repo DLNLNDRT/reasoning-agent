@@ -1,0 +1,28 @@
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Streamlit cache
+.streamlit/
+.cache/
+
+# Data & datasets
+datasets/
+
+# macOS system files
+.DS_Store
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log
+Users/reasoning-agent/Archive.zip
+path/to/huge_file.ext # adjust the path

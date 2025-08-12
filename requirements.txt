@@ -1,0 +1,13 @@
+streamlit
+datasets
+evaluate
+openai
+ollama
+pydantic
+numpy
+pandas
+tqdm
+google-generativeai
+pyyaml
+Scikit-learn
+Altairaltair

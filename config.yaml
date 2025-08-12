@@ -1,0 +1,21 @@
+models:
+small: # you can switch in the UI
+provider: ollama
+ollama_model: gemma2:9b # default; UI lets you pick llama3:8b too
+frontier:
+provider: openai # or "google"
+openai_model: gpt-5 # fallback to one your account has (e.g., gpt-4o, o3)
+google_model: gemini-2.5-pro
+techniques:
+  self_consistency:
+    n: 7
+    temperature: 0.8
+  cot:
+    temperature: 0.0
+  few_shot:
+    k_shots: 3
+  self_ask:
+    max_steps: 4
+    temperature: 0.3
+ui:
+  dev_traces: true
