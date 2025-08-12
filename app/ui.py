@@ -47,7 +47,7 @@ st.sidebar.header("Small model (Ollama)")
 st.sidebar.caption("Pick the local model (run `ollama serve` and `ollama pull <model>` beforehand).")
 small_model = st.sidebar.selectbox(
     "Model",
-    ["gemma2:9b", "llama3:8b"],
+    ["gemma2:9b", "llama3:8b", "gemma3:1b", "deepseek-r1:8b" ],
     index=0,
     help="Local model served by Ollama to represent the 'small' family."
 )
@@ -60,8 +60,11 @@ technique = st.sidebar.selectbox(
     index=2,
     help=(
         "few_shot: prepend a few solved examples.  "
+
         "cot: hidden step-by-step reasoning with a final letter.  "
+
         "self_consistency: sample N times and majority-vote.  "
+
         "self_ask: ask brief sub-questions before deciding."
     )
 )

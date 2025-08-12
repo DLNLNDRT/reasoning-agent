@@ -36,7 +36,7 @@ If you have SSH access:
    ```bash
    cd <YOUR_REPO_NAME>
    ```
-###. 3. Create and Activate a Virtual Environment
+### 3. Create and Activate a Virtual Environment
    ```bash
    python3 -m venv venv
    source venv/bin/activate   # Mac/Linux
@@ -56,7 +56,7 @@ Mac/Linux (bash/zsh):
    ```
 Windows (Powershell):
    ```bash
-   csetx OPENAI_API_KEY "your-openai-key"
+   setx OPENAI_API_KEY "your-openai-key"
    setx GOOGLE_API_KEY "your-google-key"
    ```
 If you want to use local models with Ollama, install it from https://ollama.ai and run:
@@ -65,7 +65,7 @@ If you want to use local models with Ollama, install it from https://ollama.ai a
    ollama pull gemma2:9b
    ollama pull llama3:8b
    ```
-###. 6. Run the App
+### 6. Run the App
    ```bash
    streamlit run app/ui.py
    ```

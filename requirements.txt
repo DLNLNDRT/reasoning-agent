@@ -10,4 +10,4 @@ tqdm
 google-generativeai
 pyyaml
 Scikit-learn
-Altairaltair
+Altair
