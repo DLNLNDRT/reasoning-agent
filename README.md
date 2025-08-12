@@ -1,106 +1,90 @@
 # Reasoning Agent (MMLU)
 
-Compares local small models (Ollama) vs frontier models (OpenAI/Gemini) on MMLU using:
-- Few-shot
-- Chain-of-thought
-- Self-consistency
-- Self-ask
-
-Transparent traces (plan, votes, steps) without raw chain-of-thought.
-
-## Run
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export OPENAI_API_KEY=YOUR_OPENAI_KEY
-export GOOGLE_API_KEY=YOUR_GOOGLE_KEY
-brew install ollama && ollama serve && ollama pull gemma2:9b && ollama pull llama3:8b
-streamlit run app/ui.py
-
+An interactive Streamlit UI to run and compare reasoning models on the MMLU benchmark using multiple prompting techniques.  
+It supports both **Frontier models** (OpenAI, Google) and **Small models** (local Ollama), with single-question transparency mode and batch evaluation with live progress.
 
 ---
 
-# Step 8) Create the model registry (OpenAI, Gemini, Ollama)
-**File:** `reasoning-agent/models/registry.py`
-```bash
-cat > models/registry.py << 'PY'
-from dataclasses import dataclass
-from typing import List, Optional
-import os
+## Features
 
-@dataclass
-class GenOut:
-    texts: List[str]
-    prompt_tokens: Optional[int] = None
-    completion_tokens: Optional[int] = None
+- **Single Question (Transparency Mode)**  
+  - Watch sanitized reasoning steps live while the model solves a question.  
+  - Choose between few-shot, chain-of-thought (CoT), self-consistency, or self-ask prompting.  
 
-class LLM:
-    def generate(self, prompt: str, temperature=0.0, n=1) -> GenOut:
-        raise NotImplementedError
+- **Batch Evaluation**  
+  - Run multiple MMLU questions per subject.  
+  - See live per-subject progress bars and logs.  
+  - Summarized accuracy and latency statistics.  
 
-# ---------- Frontier: OpenAI (ChatGPT family) ----------
-class OpenAIChat(LLM):
-    def __init__(self, model=None):
-        from openai import OpenAI
-        self.client = OpenAI()
-        self.model = model or os.getenv("FRONTIER_MODEL", "gpt-4o")
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
-        msgs = [
-            {"role": "system", "content": "You are a careful expert test-taker."},
-            {"role": "user", "content": prompt},
-        ]
-        resp = self.client.chat.completions.create(
-            model=self.model, messages=msgs, temperature=float(temperature), n=n
-        )
-        texts = [c.message.content for c in resp.choices]
-        return GenOut(texts=texts)
+- **Results & Analysis**  
+  - Automatic logging of all runs to `results/log.csv`.  
+  - Filter results by model, provider, technique, or subject.  
+  - Charts for accuracy and latency comparisons.
 
-# ---------- Frontier: Google Gemini ----------
-class GeminiChat(LLM):
-    def __init__(self, model=None):
-        import google.generativeai as genai
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY not set")
-        genai.configure(api_key=api_key)
-        self.model_name = model or os.getenv("GOOGLE_MODEL", "gemini-2.5-pro")
-        from google.generativeai import GenerativeModel
-        self.model = GenerativeModel(self.model_name)
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
-        texts = []
-        for _ in range(n):
-            resp = self.model.generate_content(
-                prompt, generation_config={"temperature": float(temperature)}
-            )
-            text = getattr(resp, "text", None)
-            if text is None and getattr(resp, "candidates", None):
-                text = resp.candidates[0].content.parts[0].text
-            texts.append(text or "")
-        return GenOut(texts=texts)
+---
 
-# ---------- Small: Ollama (local models) ----------
-class OllamaChat(LLM):
-    def __init__(self, model=None):
-        import ollama
-        self.ollama = ollama
-        self.model = model or os.getenv("SMALL_MODEL", "gemma2:9b")
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
-        texts = []
-        for _ in range(n):
-            out = self.ollama.chat(
-                model=self.model,
-                messages=[{"role": "user", "content": prompt}],
-                options={"temperature": float(temperature)},
-            )
-            texts.append(out["message"]["content"])
-        return GenOut(texts=texts)
+## Requirements
 
-def build_llm(provider: str, model: str) -> LLM:
-    if provider == "openai": return OpenAIChat(model=model)
-    if provider == "google": return GeminiChat(model=model)
-    if provider == "ollama": return OllamaChat(model=model)
-    raise ValueError(f"Unknown provider: {provider}")
-PY
+- Python 3.9+  
+- [Streamlit](https://streamlit.io/)  
+- [datasets](https://huggingface.co/docs/datasets)  
+- [pandas](https://pandas.pydata.org/)  
+- [altair](https://altair-viz.github.io/)  
+- Access to:
+  - **Frontier Models** — API keys for OpenAI or Google
+  - **Small Models** — [Ollama](https://ollama.com/) installed locally
+
+---
+
+## Installation
+
+1. **Clone the repository** (via SSH)
+   ```bash
+   git clone git@github.com:YOUR_USERNAME/YOUR_REPO.git
+   cd YOUR_REPO
+
+2. Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate      # Windows
+
+3. Install dependencies
+pip install -r requirements.txt
+
+4. Set your API keys (replace with your keys)
+export OPENAI_API_KEY="your_openai_key"
+export GOOGLE_API_KEY="your_google_key"
+
+5. For local models, install and run Ollama:
+Download Ollama -> https://ollama.com/download
+Start the server:
+ollama serve
+Pull the model you want to use:
+ollama pull gemma2:9b
 
 
-PY
+Running the App
+Launch the Streamlit UI:
+streamlit run app/ui.py
+
+How to Use
+Tab 1 — Single Question (Transparency)
+Select a subject, question index, model family, and prompting technique.
+
+Optionally enable Live mode to see sanitized reasoning steps.
+
+Click Solve to run the query.
+
+Tab 2 — Batch Evaluation
+Select one or more subjects.
+
+Set the number of items per subject.
+
+Click Run Batch to evaluate and view live progress.
+
+Tab 3 — Results & Analysis
+Explore saved runs from results/log.csv.
+
+Filter by family, provider, model, technique, or subject.
+
+View accuracy and latency charts.
