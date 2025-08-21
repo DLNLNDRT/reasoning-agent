@@ -47,7 +47,7 @@ st.sidebar.header("Small model (Ollama)")
 st.sidebar.caption("Pick the local model (run `ollama serve` and `ollama pull <model>` beforehand).")
 small_model = st.sidebar.selectbox(
     "Model",
-    ["gemma2:9b", "llama3:8b", "gemma3:1b", "deepseek-r1:8b" ],
+    ["gemma2:9b", "llama3:8b", "gemma3:1b", "deepseek-r1:8b", "gemma3:270m" ],
     index=0,
     help="Local model served by Ollama to represent the 'small' family."
 )
@@ -59,13 +59,13 @@ technique = st.sidebar.selectbox(
     ["few_shot", "cot", "self_consistency", "self_ask"],
     index=2,
     help=(
-        "few_shot: prepend a few solved examples.  "
+        "FEW SHOT: prepend a few solved examples.  "
 
-        "cot: hidden step-by-step reasoning with a final letter.  "
+        "COT: hidden step-by-step reasoning with a final letter.  "
 
-        "self_consistency: sample N times and majority-vote.  "
+        "SELF CONSISTENCY: sample N times and majority-vote.  "
 
-        "self_ask: ask brief sub-questions before deciding."
+        "SELF ASK: ask brief sub-questions before deciding."
     )
 )
 n_items = st.sidebar.slider(
@@ -593,14 +593,14 @@ with tab4:
     q_index = st.selectbox(
         "Choose question number",
         list(range(len(ds))),
-        format_func=lambda x: f"Question {x + 1}"
+        format_func=lambda x: f"Question {x}"
     )
 
     # Fetch the question data
     row = ds[q_index]
 
     # Display question text
-    st.subheader(f"Question {q_index + 1}")
+    st.subheader(f"Question {q_index}")
     st.write(row["question"])
 
     # Display choices

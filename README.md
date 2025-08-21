@@ -59,11 +59,14 @@ Windows (Powershell):
    setx OPENAI_API_KEY "your-openai-key"
    setx GOOGLE_API_KEY "your-google-key"
    ```
-If you want to use local models with Ollama, install it from https://ollama.ai and run:
+If you want to use local models (pull only the ones you want to use) with Ollama, install it from https://ollama.ai and run:
    ```bash
    ollama serve
    ollama pull gemma2:9b
    ollama pull llama3:8b
+   ollama pull gemma3:1b
+   ollama pull deepseek-r1:8b
+   ollama pull gemma3:270m
    ```
 ### 6. Run the App
    ```bash

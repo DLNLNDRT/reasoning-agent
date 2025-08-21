@@ -100,3 +100,14 @@ timestamp,run_id,mode,provider,model,family,technique,subject,question_index,pre
 1755026061,2ef1bb1d-ec4d-41a4-964c-b1e89dba3fb4,batch,ollama,gemma3:1b,small,few_shot,anatomy,23,A,1,0,2.8295,,,
 1755026064,2ef1bb1d-ec4d-41a4-964c-b1e89dba3fb4,batch,ollama,gemma3:1b,small,few_shot,anatomy,24,A,1,0,2.8676,,,
 1755027414,deb286b9-1a0a-4eae-b34a-09f088624b04,single,ollama,gemma3:1b,small,self_consistency,astronomy,0,A,0,0,,7,,
+1755768467,0b9154e2-3104-4197-888e-b21938bf453d,single,ollama,gemma3:270m,small,self_consistency,astronomy,0,A,0,0,,7,,
+1755768538,9d67f46f-9cd1-494b-92b5-91ec099b86d6,single,ollama,gemma3:270m,small,self_consistency,astronomy,0,A,0,0,,15,,
+1755768675,46c4f0a7-f199-41d2-b9f2-7ca1d557086c,single,ollama,gemma3:270m,small,self_ask,astronomy,0,A,0,0,,,4,
+1755768704,2177a4ec-ed47-4764-8e2c-6e0e19a6ef8d,single,ollama,gemma3:270m,small,self_ask,astronomy,18,A,3,0,,,4,
+1755768724,01fa5141-056e-4133-84a8-65f333b934bb,single,ollama,gemma3:270m,small,self_ask,astronomy,18,A,3,0,,,6,
+1755768765,c265fd88-aecd-4062-8821-571f9e5ef394,single,ollama,gemma3:1b,small,self_ask,astronomy,18,A,3,0,,,6,
+1755771203,36ee8fe9-d1a1-4f75-8b80-dbdecec1519b,single,ollama,gemma3:1b,small,self_ask,anatomy,22,A,1,0,,,6,
+1755771223,80db0ee6-db95-41fb-a0a5-47273e9d973e,single,ollama,gemma3:1b,small,self_ask,anatomy,22,A,1,0,,,6,
+1755771880,962e5834-b293-48d8-a366-a2a3028fccbd,single,ollama,gemma3:1b,small,cot,anatomy,22,A,1,0,,,,
+1755772009,9016ac44-6cb8-42e6-b4e0-3248c6a80c85,single,ollama,gemma3:1b,small,few_shot,anatomy,22,A,1,0,,,,3
+1755772048,20a38869-e8ba-4b62-ae6f-932bb6d441c5,single,ollama,gemma3:1b,small,few_shot,anatomy,22,A,1,0,,,,5
