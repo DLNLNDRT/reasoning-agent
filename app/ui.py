@@ -47,7 +47,7 @@ st.sidebar.header("Small model (Ollama)")
 st.sidebar.caption("Pick the local model (run `ollama serve` and `ollama pull <model>` beforehand).")
 small_model = st.sidebar.selectbox(
     "Model",
-    ["gemma2:9b", "llama3:8b", "gemma3:1b", "deepseek-r1:8b", "gemma3:270m" ],
+    ["gemma2:9b", "llama3:8b"],
     index=0,
     help="Local model served by Ollama to represent the 'small' family."
 )
@@ -59,13 +59,10 @@ technique = st.sidebar.selectbox(
     ["few_shot", "cot", "self_consistency", "self_ask"],
     index=2,
     help=(
-        "FEW SHOT: prepend a few solved examples.  "
-
-        "COT: hidden step-by-step reasoning with a final letter.  "
-
-        "SELF CONSISTENCY: sample N times and majority-vote.  "
-
-        "SELF ASK: ask brief sub-questions before deciding."
+        "few_shot: prepend a few solved examples.  "
+        "cot: hidden step-by-step reasoning with a final letter.  "
+        "self_consistency: sample N times and majority-vote.  "
+        "self_ask: ask brief sub-questions before deciding."
     )
 )
 n_items = st.sidebar.slider(
@@ -113,8 +110,8 @@ else:
     chosen = f"ollama:{small_model}"
 
 # =================== MAIN TABS ===================
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["Single Question (Transparency)", "Batch Evaluation", "Results & Analysis", "MMLU Dataset Browser"]
+tab1, tab2, tab3 = st.tabs(
+    ["Single Question (Transparency)", "Batch Evaluation", "Results & Analysis"]
 )
 
 # ------------- Tab 1 -------------
@@ -576,37 +573,3 @@ with tab3:
                 "- **p50 latency** = median per-question wall time (batch runs only, by default). If missing, run batch to record it.\n"
                 "- **n** = number of questions included in the aggregate for that row."
             )
-with tab4:
-    st.header("MMLU Dataset Browser")
-
-    # Subject dropdown
-    subject = st.selectbox("Choose subject", SUBJECTS)
-
-    # Cache dataset loading for speed
-    @st.cache_data
-    def load_subject_data(subj):
-        return load_dataset("cais/mmlu", subj)["test"]
-
-    ds = load_subject_data(subject)
-
-    # Question selector (dropdown for nicer navigation)
-    q_index = st.selectbox(
-        "Choose question number",
-        list(range(len(ds))),
-        format_func=lambda x: f"Question {x}"
-    )
-
-    # Fetch the question data
-    row = ds[q_index]
-
-    # Display question text
-    st.subheader(f"Question {q_index}")
-    st.write(row["question"])
-
-    # Display choices
-    choices_labels = ["A", "B", "C", "D"]
-    for label, choice in zip(choices_labels, row["choices"]):
-        st.write(f"**{label}**: {choice}")
-
-    # Show correct answer
-    st.markdown(f"**Correct answer:** {choices_labels[row['answer']]}")
