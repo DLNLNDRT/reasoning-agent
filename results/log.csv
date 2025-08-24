@@ -39,3 +39,19 @@ C) stride length.
 D) stamina.
 
 Answer with a single letter: A, B, C, or D.",D
+1756038040,fbe1f10b-8e4b-40a0-8256-385830607f0f,single,ollama,gemma2:9b,small,plain,astronomy,0,A,A,1,,,,,"What is true for a type-Ia (""type one-a"") supernova?
+
+A) This type occurs in binary systems.
+B) This type occurs in young galaxies.
+C) This type produces gamma-ray bursts.
+D) This type produces high amounts of X-rays.
+
+Answer with a single letter: A, B, C, or D.",A
+1756038050,38e3dcf0-e253-40d4-846e-78c70926f55e,single,ollama,llama3:8b,small,plain,astronomy,0,A,A,1,,,,,"What is true for a type-Ia (""type one-a"") supernova?
+
+A) This type occurs in binary systems.
+B) This type occurs in young galaxies.
+C) This type produces gamma-ray bursts.
+D) This type produces high amounts of X-rays.
+
+Answer with a single letter: A, B, C, or D.",A

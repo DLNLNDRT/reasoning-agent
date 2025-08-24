@@ -244,7 +244,7 @@ with tab1:
                             live_holder.markdown("".join(buffer))
 
                 full_text = "".join(buffer)
-                ffinal_answer = plain_tech._extract_letter("".join(buffer))
+                final_answer = plain_tech._extract_letter("".join(buffer))
                 gt = _to_letter_any(row.get("answer"))
 
             elif technique == "few_shot":
