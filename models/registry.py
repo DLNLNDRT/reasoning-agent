@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
-from typing import Iterator
+from typing import List, Optional, Iterator
 import os
 
 @dataclass
@@ -10,8 +9,17 @@ class GenOut:
     completion_tokens: Optional[int] = None
 
 class LLM:
-    def generate(self, prompt: str, temperature=0.0, n=1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
         raise NotImplementedError
+
+    # Optional: backends may implement this
+    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+        # By default, fall back to non-streaming generate()
+        out = self.generate(prompt, temperature=temperature, n=1)
+        text = out.texts[0] if out.texts else ""
+        if text:
+            yield text
+
 
 # ---------- Frontier: OpenAI (ChatGPT family) ----------
 class OpenAIChat(LLM):
@@ -19,31 +27,38 @@ class OpenAIChat(LLM):
         from openai import OpenAI
         self.client = OpenAI()
         self.model = model or os.getenv("FRONTIER_MODEL", "gpt-4o")
-        
-    def generate_stream(self, prompt, temperature=0.0) -> Iterator[str]:
-        # Streaming chat completions
+
+    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+        """
+        Yield string chunks from OpenAI Chat Completions streaming API.
+        """
         msgs = [
             {"role": "system", "content": "You are a careful expert test-taker."},
             {"role": "user", "content": prompt},
         ]
-        resp = self.client.chat.completions.create(
-            model=self.model, messages=msgs,
-            temperature=float(temperature), stream=True
-        )
         try:
+            resp = self.client.chat.completions.create(
+                model=self.model,
+                messages=msgs,
+                temperature=float(temperature),
+                stream=True,
+            )
             for chunk in resp:
                 # v1 API: choices[0].delta.content may be None
                 delta = getattr(chunk.choices[0], "delta", None)
                 text = getattr(delta, "content", None)
-                if text:
+                if isinstance(text, str) and text:
                     yield text
-        except StopIteration:
-            return
+        except (StopIteration, RuntimeError):
+            # Gracefully end stream
+            pass
         except Exception:
-            # swallow streaming glitch; higher layer will fallback
-            return
+            # Fallback to one-shot generate if streaming fails
+            fallback = self.generate(prompt, temperature=temperature).texts[0]
+            if fallback:
+                yield fallback
 
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
         msgs = [
             {"role": "system", "content": "You are a careful expert test-taker."},
             {"role": "user", "content": prompt},
@@ -51,9 +66,9 @@ class OpenAIChat(LLM):
         resp = self.client.chat.completions.create(
             model=self.model, messages=msgs, temperature=float(temperature), n=n
         )
-
-        texts = [c.message.content for c in resp.choices]
+        texts = [c.message.content or "" for c in resp.choices]
         return GenOut(texts=texts)
+
 
 # ---------- Frontier: Google Gemini ----------
 class GeminiChat(LLM):
@@ -70,15 +85,7 @@ class GeminiChat(LLM):
             model_name=self.model_name,
             system_instruction="Answer concisely. For multiple choice, return only A/B/C/D.",
         )
-
-        # Optional: relax safety if harmless prompts get blocked. Uncomment to use.
-        # from google.generativeai.types import SafetySetting
-        # self.safety_settings = {
-        #     "HARASSMENT": SafetySetting(block_threshold="BLOCK_ONLY_HIGH"),
-        #     "HATE_SPEECH": SafetySetting(block_threshold="BLOCK_ONLY_HIGH"),
-        #     "SEXUAL_CONTENT": SafetySetting(block_threshold="BLOCK_ONLY_HIGH"),
-        #     "DANGEROUS_CONTENT": SafetySetting(block_threshold="BLOCK_ONLY_HIGH"),
-        # }
+        # self.safety_settings = {...}  # optional
         self.safety_settings = None
 
     # ---- helpers ----
@@ -91,38 +98,33 @@ class GeminiChat(LLM):
         texts = []
         for p in parts:
             t = getattr(p, "text", None)
-            if t:
+            if isinstance(t, str) and t:
                 texts.append(t)
         return "\n".join(texts).strip()
 
     def _extract_first_text(self, resp) -> str:
         """Safe extraction that never uses resp.text quick accessor."""
-        # Check prompt-level block
         fb = getattr(resp, "prompt_feedback", None)
         if fb and getattr(fb, "block_reason", None):
             return f"[Gemini blocked prompt: {fb.block_reason}]"
-
-        # Walk candidates and pull any text parts
         for cand in getattr(resp, "candidates", []) or []:
             text = self._coalesce_candidate_text(cand)
             if text:
                 return text
-
-        # Nothing found — include finish_reason for debugging if available
         fr = None
         if getattr(resp, "candidates", None):
             fr = getattr(resp.candidates[0], "finish_reason", None)
         return f"[Gemini returned no text parts; finish_reason={fr}]"
 
     # ---- non-streaming ----
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
         texts = []
         for _ in range(n):
             resp = self.model.generate_content(
                 prompt,
                 generation_config={
                     "temperature": float(temperature),
-                    "max_output_tokens": 512,  # keep modest to avoid truncation surprises
+                    "max_output_tokens": 384 if "flash" in self.model_name else 512,
                 },
                 safety_settings=self.safety_settings,
             )
@@ -130,34 +132,39 @@ class GeminiChat(LLM):
         return GenOut(texts=texts)
 
     # ---- streaming ----
-    def generate_stream(self, prompt, temperature=0.0) -> Iterator[str]:
-        """Yield text chunks; if chunks have no text parts, silently skip them."""
-        resp = self.model.generate_content(
-            prompt,
-            generation_config={"temperature": float(temperature)},
-            safety_settings=self.safety_settings,
-            stream=True,
-        )
+    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+        """
+        Yield text chunks from Gemini streaming; if chunks have no text parts, skip them.
+        On failure, fall back to a single non-streaming response.
+        """
         try:
+            resp = self.model.generate_content(
+                prompt,
+                generation_config={
+                    "temperature": float(temperature)},
+                safety_settings=self.safety_settings,
+                stream=True,
+            )
             for chunk in resp:
-                # Don’t touch chunk.text; pull parts safely
                 cands = getattr(chunk, "candidates", None)
                 if not cands:
                     continue
-                parts = getattr(cands[0].content, "parts", None)
+                content = getattr(cands[0], "content", None)
+                parts = getattr(content, "parts", None) if content else None
                 if not parts:
                     continue
                 for p in parts:
                     t = getattr(p, "text", None)
-                    if t:
+                    if isinstance(t, str) and t:
                         yield t
+        except (StopIteration, RuntimeError):
+            # Normal stream termination patterns
+            pass
         except Exception:
-            # Fallback to one-shot if streaming fails mid-way
+            # Fallback to one-shot on any streaming error
             fallback = self.generate(prompt, temperature=temperature).texts[0]
             if fallback:
                 yield fallback
-
-        return GenOut(texts=texts)
 
 
 # ---------- Small: Ollama (local models) ----------
@@ -167,8 +174,10 @@ class OllamaChat(LLM):
         self.ollama = ollama
         self.model = model or os.getenv("SMALL_MODEL", "gemma2:9b")
 
-    def generate_stream(self, prompt, temperature=0.0) -> Iterator[str]:
-        # Ollama Python SDK stream=True returns an iterator of chunks
+    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+        """
+        Yield text chunks from Ollama streaming API (chat with stream=True).
+        """
         try:
             stream = self.ollama.chat(
                 model=self.model,
@@ -179,14 +188,17 @@ class OllamaChat(LLM):
             for chunk in stream:
                 msg = chunk.get("message", {})
                 t = msg.get("content", "")
-                if t:
+                if isinstance(t, str) and t:
                     yield t
-        except StopIteration:
-            return
+        except (StopIteration, RuntimeError):
+            pass
         except Exception:
-            return
+            # Fallback to one-shot generate
+            fallback = self.generate(prompt, temperature=temperature).texts[0]
+            if fallback:
+                yield fallback
 
-    def generate(self, prompt, temperature=0.0, n=1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
         texts = []
         for _ in range(n):
             out = self.ollama.chat(

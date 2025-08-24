@@ -13,7 +13,9 @@ COLUMNS = [
     "prediction", "reference", "correct",
     "latency_sec",
     # hyperparams (nullable)
-    "self_consistency_n", "self_ask_steps", "few_shot_k"
+    "self_consistency_n", "self_ask_steps", "few_shot_k",
+    # NEW: tracing
+    "prompt_snippet", "output_snippet",
 ]
 
 class Logger:
@@ -24,9 +26,30 @@ class Logger:
             with self.path.open("w", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=COLUMNS)
                 writer.writeheader()
+        else:
+            self._ensure_columns()
+
+    def _ensure_columns(self):
+        """If existing CSV misses new columns, rewrite it in place with added columns."""
+        with self.path.open("r", newline="") as f:
+            reader = csv.DictReader(f)
+            old_cols = reader.fieldnames or []
+            if set(COLUMNS).issubset(set(old_cols)):
+                return  # nothing to do
+            rows = list(reader)
+
+        # Build new rows with all columns
+        new_rows = []
+        for r in rows:
+            nr = {c: r.get(c, "") for c in COLUMNS}
+            new_rows.append(nr)
+
+        with self.path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=COLUMNS)
+            writer.writeheader()
+            writer.writerows(new_rows)
 
     def append(self, row: Dict[str, Any]):
-        # ensure all columns exist
         out = {k: row.get(k) for k in COLUMNS}
         out["timestamp"] = out.get("timestamp") or int(time.time())
         with self.path.open("a", newline="") as f:
