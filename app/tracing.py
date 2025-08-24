@@ -125,18 +125,20 @@ class TracingLLM:
 
     # Non-streaming
     def generate(self, prompt: str, **kwargs):
-        # Reset before recording
-        self.reset()
         red_prompt = _redact_prompt(prompt)
         self.last["prompts"].append(red_prompt)
 
         out = self.llm.generate(prompt, **kwargs)
-        if hasattr(out, "texts"):  # GenOut
-            text = out.texts[0] if out.texts else ""
-        elif isinstance(out, str):
-            text = out
+
+        # 🔧 Robustly extract first text
+        text = None
+        if hasattr(out, "texts") and out.texts:
+            text = out.texts[0]
+        elif hasattr(out, "text") and isinstance(out.text, str):
+            text = out.text
         else:
-            text = str(out)
+            # last resort
+            text = str(out) if out is not None else ""
 
         self.last["outputs"].append(_sanitize_output(text))
         return out
@@ -176,9 +178,14 @@ class TracingLLM:
             except (StopIteration, RuntimeError):
                 pass
 
-        if letters_seen:
-            self.last["outputs"].append(letters_seen[-1])
-        elif final_text_parts:
-            self.last["outputs"].append(_sanitize_output("".join(final_text_parts)))
+        # Summarize for the dev trace (prefer final text; then pick letter)
+        final_text = "".join(final_text_parts)
+        if final_text:
+            # strict A/B/C/D extraction on the final combined text
+            m = re.search(r"\b([ABCD])\b", final_text, re.IGNORECASE)
+            if m:
+                self.last["outputs"].append(m.group(1).upper())
+            else:
+                self.last["outputs"].append(_sanitize_output(final_text))
         else:
             self.last["outputs"].append("[no text chunks]")

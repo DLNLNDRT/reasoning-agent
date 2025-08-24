@@ -73,13 +73,16 @@ frontier_provider = st.sidebar.selectbox(
     index=0,
     help="OpenAI = gpt-4o-mini. Google = gemini-1.5-flash."
 )
-# Automatically pick the right model based on provider
-if frontier_provider == "openai":
-    frontier_model = "gpt-4o-mini"
-    st.sidebar.caption("Model fixed: **GPT-4o mini** for OpenAI.")
-elif frontier_provider == "google":
-    frontier_model = "gemini-1.5-flash"
-    st.sidebar.caption("Model fixed: **Gemini 1.5 Flash** for Google.")
+
+frontier_model = st.sidebar.selectbox(
+    "Model",
+    (["gpt-4o-mini", "gpt-5"] if frontier_provider == "openai"
+     else ["gemini-1.5-flash", "gemini-2.5-pro"]),
+    index=(1 if frontier_provider == "openai" else 1),  # default to gpt-5 for OpenAI, 2.5-pro for Google
+    help=("OpenAI: gpt-4o-mini (low cost) or gpt-5 (best quality).  "
+          "Google: gemini-1.5-flash (fast/cheap) or gemini-2.5-pro (best reasoning).")
+)
+
 
 # --- Title with model name ---
 st.title(f"Reasoning Agent — MMLU with Transparent Traces")
@@ -222,7 +225,8 @@ with tab1:
 
             final_answer, gt = None, None
 
-            if tracer: tracer.reset()
+            if trace_enabled and tracer is not None:
+                tracer.reset()
 
             if technique == "plain":
                 # build prompt: question + choices
@@ -309,7 +313,7 @@ with tab1:
                         "self_ask_steps": steps if technique == "self_ask" else None,
                         "few_shot_k": kshots if technique == "few_shot" else None,
                         "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                        "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
+                        "output_snippet": final_answer #(tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
                     })
                 except Exception:
                     pass
@@ -330,6 +334,9 @@ with tab1:
             st.info(f"Using **{chosen}** with **{technique}** (instant).")
             with st.spinner("Solving…"):
                 final_answer, gt, trace = None, None, {}
+
+                if trace_enabled and tracer is not None:
+                    tracer.reset()
 
                 if technique == "plain":
                     from mmlu.techniques import plain_tech
@@ -405,7 +412,7 @@ with tab1:
                         "self_ask_steps": steps if technique == "self_ask" else None,
                         "few_shot_k": kshots if technique == "few_shot" else None,
                         "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                        "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
+                        "output_snippet": final_answer #(tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
                     })
                 except Exception:
                     pass
@@ -438,7 +445,7 @@ with tab2:
 
     picks = st.multiselect(
         "Subjects (batch)",
-        SUBJECTS[:12],
+        SUBJECTS,#[:12],
         default=["astronomy", "abstract_algebra"],
         help="Pick one or more subjects. Results show accuracy and median latency per subject."
     )
@@ -546,9 +553,9 @@ with tab2:
             import pandas as pd
             st.markdown("### Batch Developer Trace (last 20 prompts/outputs)")
             df = pd.read_csv("results/log.csv")
-            df = df[df["run_id"] == run_id]  # only current run
-            trace_df = df[["subject","question_index","technique","prediction","reference","prompt_snippet","output_snippet"]].dropna(how="all", subset=["prompt_snippet","output_snippet"])
-            trace_df = trace_df.tail(20)  # only last 20 for readability
+            df = df[df["run_id"] == run_id]
+            trace_df = df[["subject","question_index","technique","prediction","reference","prompt_snippet","output_snippet"]]
+            trace_df = trace_df.dropna(how="all", subset=["prompt_snippet","output_snippet"]).tail(20)
             st.dataframe(trace_df, use_container_width=True)
 
 

@@ -24,7 +24,7 @@ def tiny_exemplars(subject, k=3):
     return ex
 
 def run_subject(subject, technique, n_items=25, **params):
-    from mmlu.techniques.plain import run as plain_run
+ #   from mmlu.techniques.plain import run as plain_run
     # Build LLM from explicit provider/model
     provider = params.pop("provider")
     model = params.pop("model")
@@ -86,13 +86,67 @@ def run_subject_iter(subject, technique, n_items=25, **params):
     """
     from datasets import load_dataset
     from evaluate import load as load_metric
-    import time
-    import numpy as np
+    import time, numpy as np, re
 
     from models.registry import build_llm
-    from mmlu.techniques import few_shot, cot, self_consistency, self_ask
+    from mmlu.techniques import few_shot, cot, self_consistency, self_ask, plain_tech
     from .run import tiny_exemplars  # reuse
-    from mmlu.techniques.plain import run as plain_run
+
+    # ---------- helpers: robust letter normalization ----------
+    LETTERS = "ABCD"
+    LETTER_RE = re.compile(r"\b([ABCD])\b", re.IGNORECASE)
+
+    def _to_letter_any(x):
+        """
+        Return 'A'/'B'/'C'/'D' from:
+          - already a letter (any case),
+          - 0..3 index (zero-based),
+          - 1..4 index (one-based),
+          - strings like '2', '1.0', or 'C)' etc.
+        Fallback: uppercased first A-D found; else uppercased string.
+        """
+        if x is None:
+            return ""
+        s = str(x).strip().upper()
+        if s in {"A", "B", "C", "D"}:
+            return s
+        # e.g., "C) stamina"
+        if len(s) >= 2 and s[0] in LETTERS and s[1] in {")", ".", ":", "-", " "}:
+            return s[0]
+        # numeric-ish
+        try:
+            i = int(float(s))
+            if i in (0, 1, 2, 3):
+                return LETTERS[i]
+            if i in (1, 2, 3, 4):
+                return LETTERS[i - 1]
+        except Exception:
+            pass
+        # look for any standalone A-D
+        m = LETTER_RE.search(s)
+        if m:
+            return m.group(1).upper()
+        return s
+
+    def _letter_to_idx(L):
+        """A/B/C/D -> 0/1/2/3; tolerant of odd inputs."""
+        L = _to_letter_any(L)
+        return {"A": 0, "B": 1, "C": 2, "D": 3}.get(L, -1)
+
+    def _to_idx_list(seq):
+        """Convert any list of letters/numbers to 0..3 ints for metric."""
+        out = []
+        for x in seq:
+            idx = _letter_to_idx(x)
+            if idx < 0:
+                # fallback: try numeric
+                try:
+                    idx = int(float(str(x).strip()))
+                except Exception:
+                    idx = -1
+            out.append(idx)
+        return out
+    # ---------------------------------------------------------
 
     # tracer
     try:
@@ -122,7 +176,7 @@ def run_subject_iter(subject, technique, n_items=25, **params):
     exemplars = tiny_exemplars(subject, k=params.pop("k_shots", 3)) if technique == "few_shot" else None
 
     preds, refs, times = [], [], []
-    
+
     # start event
     yield {"event": "start", "subject": subject, "n": len(ds)}
 
@@ -133,10 +187,8 @@ def run_subject_iter(subject, technique, n_items=25, **params):
         prev_p = len(tracer.last["prompts"]) if tracer else 0
         prev_o = len(tracer.last["outputs"]) if tracer else 0
 
-        # run the chosen technique
+        # -------- run the chosen technique --------
         if technique == "plain":
-            # Minimal prompt: question + choices + 'Answer with a single letter...'
-            # No few-shot, no CoT, no self-ask, no system prompt (plain_run handles that).
             yhat, _ = plain_tech.run(
                 row, llm,
                 temperature=params.get("temperature", 0.0),
@@ -148,27 +200,27 @@ def run_subject_iter(subject, technique, n_items=25, **params):
             yhat, _ = cot.run(row, llm)
         elif technique == "self_consistency":
             yhat, _ = self_consistency.run(
-                row, llm, 
-                n=params.get("n", 7), 
-                temperature=params.get("temperature", 0.8))
+                row, llm,
+                n=params.get("n", 7),
+                temperature=params.get("temperature", 0.8)
+            )
         elif technique == "self_ask":
             yhat, _ = self_ask.run(
-                row, llm, 
-                max_steps=params.get("max_steps", 4), 
-                temperature=params.get("temperature", 0.3))
+                row, llm,
+                max_steps=params.get("max_steps", 4),
+                temperature=params.get("temperature", 0.3)
+            )
         else:
-            # Fallback: just run plain if technique not recognized
+            # Unknown technique: ask plain question once
             raw = llm.generate(row["question"]).texts[0]
-            yhat = _to_idx_list(raw)
+            yhat = _to_letter_any(raw)
+        # -----------------------------------------
 
-        # --------------------------------          
-
-        # calculate elapsed time        
         elapsed = time.perf_counter() - t0
 
-        # Normalize answers as letters for UI/logging; DO NOT convert to ints here
-        pred_letter = str(yhat).strip().upper()
-        ref_letter  = str(row["answer"]).strip().upper()
+        # Normalize BOTH pred and ref to LETTERS for UI/logging
+        pred_letter = _to_letter_any(yhat)
+        ref_letter  = _to_letter_any(row.get("answer"))
         is_correct  = int(pred_letter == ref_letter)
 
         preds.append(pred_letter)
@@ -182,20 +234,23 @@ def run_subject_iter(subject, technique, n_items=25, **params):
             new_outputs = tracer.last["outputs"][prev_o:]
             if new_prompts:
                 prompt_snip = new_prompts[-1]
-            if new_outputs:
-                output_snip = new_outputs[-1]
-        
+            if technique == "plain":
+                output_snip = pred_letter  # ensure final letter
+            else:
+                output_snip = new_outputs[-1] if new_outputs else pred_letter
+
+        # UI event (per-item)
         yield {
             "event": "item",
             "i": idx,
-            "pred": pred_letter,            # keep as letter for UI
-            "ref": ref_letter,              # keep as letter for UI
+            "pred": pred_letter,            # letter for UI
+            "ref": ref_letter,              # letter for UI
             "elapsed": elapsed,
             "correct": is_correct,
             "prompt_snippet": prompt_snip,  # may be None
             "output_snippet": output_snip,  # may be None
         }
-        
+
         # Log this item if logger/run_id provided
         if logger and run_id:
             logger.append({
@@ -208,18 +263,18 @@ def run_subject_iter(subject, technique, n_items=25, **params):
                 "technique": technique,
                 "subject": subject,
                 "question_index": idx - 1,  # zero-based within this slice
-                "prediction": pred_letter,  # letter
-                "reference": ref_letter,    # letter
+                "prediction": pred_letter,  # <-- LETTER
+                "reference": ref_letter,    # <-- LETTER
                 "correct": is_correct,
                 "latency_sec": round(elapsed, 4),
                 "self_consistency_n": params.get("n"),
                 "self_ask_steps": params.get("max_steps"),
-                "few_shot_k": None if technique != "few_shot" else len(exemplars) if exemplars else 0,
+                "few_shot_k": (params.get("k_shots") if technique == "few_shot" else None),
                 "prompt_snippet": prompt_snip,
                 "output_snippet": output_snip,
             })
 
-    # convert to indices ONLY for the metric computation
+    # Convert to indices ONLY for the metric computation
     preds_idx = _to_idx_list(preds)
     refs_idx  = _to_idx_list(refs)
     acc = ACC.compute(predictions=preds_idx, references=refs_idx)["accuracy"]
@@ -231,5 +286,4 @@ def run_subject_iter(subject, technique, n_items=25, **params):
         "n": len(refs),
     }
 
-    # End event (unchanged semantics)
     yield {"event": "end", "subject": subject, "summary": summary}

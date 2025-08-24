@@ -1,57 +1,376 @@
 timestamp,run_id,mode,provider,model,family,technique,subject,question_index,prediction,reference,correct,latency_sec,self_consistency_n,self_ask_steps,few_shot_k,prompt_snippet,output_snippet
-1756037227,d51b07e6-3190-4303-ba22-d144a64e5454,single,ollama,gemma2:9b,small,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
+1756052731,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,0,C,C,1,4.4905,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
 
-A) strength.
-B) power.
-C) stride length.
-D) stamina.
+Question:
+Which foods tend to be consumed in lower quantities in Wales and Scotland (as of 2020)?
 
-Answer with a single letter: A, B, C, or D.",D
-1756037242,e4eb1f88-4467-4e27-af27-c490618c667d,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
 
-A) strength.
-B) power.
-C) stride length.
-D) stamina.
+Options:
+A) Meat
+B) Confectionary
+C) Fruits and vegetables
+D) Potatoes
 
-Answer with a single letter: A, B, C, or D.",D
-1756037280,08b02403-24bc-4d74-b4a3-546ebc3a061b,single,openai,gpt-4o-mini,frontier,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
+1756052734,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,1,B,B,1,3.0825,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
 
-A) strength.
-B) power.
-C) stride length.
-D) stamina.
+Question:
+In which one of the following circumstances will the prevalence of a disease in the population increase, all else being constant?
 
-Answer with a single letter: A, B, C, or D.",D
-1756037293,fa6b5009-d0de-4217-9c77-d28ddda3524b,single,google,gemini-1.5-flash,frontier,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
 
-A) strength.
-B) power.
-C) stride length.
-D) stamina.
+Options:
+A) If the incidence rate of the disease falls.
+B) If survival time with the disease increases.
+C) If recovery of the disease is faster.
+D) If the population in which the disease is measured increases.
 
-Answer with a single letter: A, B, C, or D.",D
-1756037372,f04c32c4-2fa7-49a6-9645-d81ca69d008f,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052738,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,2,C,A,0,4.179,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
 
-A) strength.
-B) power.
-C) stride length.
-D) stamina.
+Question:
+Which of the following statements is correct?
 
-Answer with a single letter: A, B, C, or D.",D
-1756038040,fbe1f10b-8e4b-40a0-8256-385830607f0f,single,ollama,gemma2:9b,small,plain,astronomy,0,A,A,1,,,,,"What is true for a type-Ia (""type one-a"") supernova?
 
-A) This type occurs in binary systems.
-B) This type occurs in young galaxies.
-C) This type produces gamma-ray bursts.
-D) This type produces high amounts of X-rays.
+Options:
+A) The flavonoid class comprises flavonoids and isoflavonoids.
+B) The digestibility and bioavailability of isoflavones in soya food products are not changed by processing.
+C) ß-Carotene and lycopene can both act as provitamin A.
+D) Carotenoids and flavonoids both belong to the polyphenol class.
 
-Answer with a single letter: A, B, C, or D.",A
-1756038050,38e3dcf0-e253-40d4-846e-78c70926f55e,single,ollama,llama3:8b,small,plain,astronomy,0,A,A,1,,,,,"What is true for a type-Ia (""type one-a"") supernova?
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
+1756052741,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,3,A,A,1,2.432,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
 
-A) This type occurs in binary systems.
-B) This type occurs in young galaxies.
-C) This type produces gamma-ray bursts.
-D) This type produces high amounts of X-rays.
+Question:
+What are the main causes of the obesity epidemic?
 
-Answer with a single letter: A, B, C, or D.",A
+
+Options:
+A) Increased energy quantity/density and a more sedentary life-style
+B) Decreased leisure time activity
+C) Changes in genetic profiles
+D) None of the options given is correct
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",A
+1756052743,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,4,C,C,1,2.1619,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which vitamin is a major lipid-soluble antioxidant in cell membranes?
+
+
+Options:
+A) Vitamin A
+B) Vitamin D
+C) Vitamin E
+D) Vitamin K
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
+1756052746,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,5,D,D,1,2.792,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following contributes to vitamin B12 deficiency in older adults?
+
+
+Options:
+A) Reduced secretion of intrinsic factor
+B) Atrophic gastritis
+C) Helicobacter pylori infection
+D) All of the above
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",D
+1756052748,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,6,B,B,1,2.3186,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Obesity increases the risk of endometrial cancer. Which hormone is thought to mediate this effect?
+
+
+Options:
+A) Testosterone
+B) Oestrogen
+C) Insulin-like growth factor-1
+D) Thyroxine
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052750,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,7,B,B,1,1.8769,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which vitamin is required for calcium absorption from the small intestine?
+
+
+Options:
+A) Vitamin A
+B) Vitamin D
+C) Vitamin E
+D) Vitamin K
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052753,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,8,C,C,1,3.0036,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following statements about the metabolic demand for amino acids is correct?
+
+
+Options:
+A) The metabolic demand is supplied only from the diet,
+B) The metabolic demand is to maintain protein turnover.
+C) The metabolic demand involves consumption of amino-acids by a number of irreversible pathways and these are either obligatory or adaptive.
+D) The metabolic demand is a fixed amount
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
+1756052756,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,9,C,B,0,3.36,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following statements about human amino acid requirements in human nutrition is correct?
+
+
+Options:
+A) The amino acid requirements determined for adults is assumed to be the requirement pattern for all ages.
+B) The amino acid requirements determined for adults is assumed to be the requirements for maintenance for all ages.
+C) The amino acid pattern of breast milk is assumed to be the requirement pattern for all children.
+D) The amino acid pattern of human tissue protein is assumed to be the requirement patterns for infants and young children.
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
+1756052761,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,10,A,B,0,4.5585,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+A food additive is considered to be safe when:
+
+
+Options:
+A) No evidence of human toxicity has been observed over the period of its use
+B) Estimated Daily Intake (EDI) from its presence in food is less than its ADI
+C) Its toxic effects are observed only at doses 100x the EDI
+D) Its benefits outweigh its risks
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052763,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,11,D,D,1,2.0722,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following statements is true:
+
+
+Options:
+A) Childhood stunting before 24 months of age affects short term cognitive performance
+B) Childhood stunting before 24 months of age affects long term cognitive performance
+C) Neither of the statements are correct
+D) Both of the statements are correct
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",D
+1756052766,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,12,B,B,1,2.9855,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+What role do women play in food security?
+
+
+Options:
+A) Their main role is preparing meals.
+B) They play a central role as producers of food, managers of natural resources, income earners and caretakers of household nutrition.
+C) They weed the fields, but never plough or plant them, as only men are strong enough for those activities.
+D) Their efforts focus mainly on vegetable gardens and chickens; men are involved with cereal crops and larger livestock.
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052768,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,13,A,A,1,2.2534,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+The following amino acids are all essential components of the diet:
+
+
+Options:
+A) leucine, methionine and threonine
+B) proline, tyrosine and serine
+C) valine, glycine and arginine
+D) leucine, cysteine and glycine
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",A
+1756052769,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,14,A,D,0,1.3619,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which single statement about fat digestion and absorption is correct?
+
+
+Options:
+A) Absorption of fatty acids in the intestine occurs mainly through FABP and FAT/CD36 transport proteins in the enterocytes of the distal duodenum
+B) After absorption, medium chain triglycerides (MCT) enter the lymphatic system, whereas long chain triglycerides enter the portal blood system.
+C) The products of partial digestion of triglycerides (triacylglycerols) can form mixed micelles with pancreatic cholesterol and phospholipids and this increases absorption
+D) Triglycerides (triacylglycerols) must be emulsified and digested before the fatty acids can be transported
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",A
+1756052773,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,15,B,B,1,3.4788,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which fatty acids found in plasma phospholipids are associated with reduced cardiovascular mortality?
+
+
+Options:
+A) Palmitic acid (16:0)
+B) Long chain (=20 carbons) saturated and n-3 polyunsaturated fatty acids
+C) á-linolenic acid (18:3)
+D) Stearic acid (18:0)
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052776,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,16,B,B,1,2.8997,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Crohn's disease:
+
+
+Options:
+A) Always affects the colon
+B) May lead to intestinal obstruction
+C) Is best treated surgically
+D) Requires a gluten free diet
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052780,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,17,D,A,0,4.2716,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following is true about the diagnosis of ""osteopenia"" or ""osteoporosis"" in North America and Western Europe
+
+
+Options:
+A) Women over age 80 with osteopenia have above average bone mineral density for their age
+B) Fewer than 10% of women over age 50 have osteopenia
+C) Fewer than 50% of women over age 80 have osteopenia or osteoporosis
+D) Osteoporosis is defined as a bone density lower than 2.5 standard deviations below the average for age-matched controls.
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",D
+1756052782,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,18,A,A,1,1.7187,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which country has undergone the most rapid nutrition transition in the last two decades?
+
+
+Options:
+A) China
+B) Sweden
+C) Britain
+D) India
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",A
+1756052783,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,19,D,D,1,1.475,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Acute binge drinking is associated with?
+
+
+Options:
+A) Happy heart syndrome
+B) Home heart syndrome
+C) Beach heart syndrome
+D) Holiday heart syndrome
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",D
+1756052786,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,20,B,B,1,2.5893,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Why are some specific indices of iron status (such as serum ferritin or transferrin receptors) generally considered to be more reliable indices of iron status, than blood haemoglobin levels are?
+
+
+Options:
+A) Because they respond more rapidly to changes in iron levels in the diet.
+B) Because blood haemoglobin levels can also respond to a variety of other factors and insults, such as lead poisoning, chronic disease, etc.
+C) Because the specific iron indices can be measured more accurately and easily.
+D) Because haemoglobin levels vary with subject age, and between the sexes.
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052789,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,21,A,A,1,3.2166,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+What stable isotope is commonly given for the measurement of total body water?
+
+
+Options:
+A) Deuterium
+B) Carbon 13
+C) Nitrogen 15
+D) Oxygen 18
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",A
+1756052792,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,22,B,C,0,2.5359,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+What are focus areas of nutritional epidemiology?
+
+
+Options:
+A) The role of nutritional factors in causing disease in a population.
+B) How changes in food intake in the population can promote good health.
+C) Both of the options given are correct.
+D) None of the options given is correct.
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",B
+1756052795,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,23,D,D,1,2.9292,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following diet-derived compounds have epigenetic effects?
+
+
+Options:
+A) Butyrate
+B) Curcumin
+C) Genistein
+D) All of the options given are correct
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",D
+1756052797,1a44d1df-0ce1-4533-aa75-9c4b9d9834b0,batch,ollama,llama3:8b,small,cot,nutrition,24,C,C,1,2.7092,,,,"You are an expert test-taker. Solve step-by-step privately, then output the letter.
+
+Question:
+Which of the following does not occur with increasing age?
+
+
+Options:
+A) A reduction in lean body mass
+B) A reduction in bone density
+C) An increased appetite
+D) Impaired immune function
+
+Show brief reasoning. Then on a new line write:
+Final answer: <A|B|C|D>
+",C
