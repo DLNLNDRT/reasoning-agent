@@ -16,6 +16,17 @@ from models.registry import build_llm
 from mmlu.techniques import few_shot, cot, self_consistency, self_ask, plain_tech
 from mmlu.run import run_subject, tiny_exemplars, run_subject_iter
 
+def _base_mmlu_prompt(row) -> str:
+    """Question + choices + short instruction (no CoT)."""
+    q = (row.get("question") or "").strip()
+    choices = row.get("choices") or []
+    lines = [q, ""]
+    for lbl, text in zip("ABCD", choices):
+        lines.append(f"{lbl}) {text}")
+    lines += ["", "Answer with a single letter: A, B, C, or D."]
+    return "\n".join(lines).strip()
+
+
 TECHNIQUE_COLORS = {
     "plain": "#808080",            # Gray baseline
     "few_shot": "#1f77b4",         # Blue
@@ -77,7 +88,7 @@ frontier_provider = st.sidebar.selectbox(
 frontier_model = st.sidebar.selectbox(
     "Model",
     (["gpt-4o-mini", "gpt-5"] if frontier_provider == "openai"
-     else ["gemini-1.5-flash", "gemini-2.5-pro"]),
+     else ["gemini-1.5-flash", "gemini-1.5-pro"]),
     index=(1 if frontier_provider == "openai" else 1),  # default to gpt-5 for OpenAI, 2.5-pro for Google
     help=("OpenAI: gpt-4o-mini (low cost) or gpt-5 (best quality).  "
           "Google: gemini-1.5-flash (fast/cheap) or gemini-2.5-pro (best reasoning).")
@@ -232,8 +243,11 @@ with tab1:
                 # build prompt: question + choices
                 q = (row.get("question") or "").strip()
                 choices = row.get("choices") or []
-                prompt = "\n".join([q, ""] + [f"{lbl}) {text}" for lbl, text in zip("ABCD", choices)] +
-                                ["", "Answer with a single letter: A, B, C, or D."]).strip()
+                prompt = "\n".join(
+                    [q, ""]
+                    + [f"{lbl}) {text}" for lbl, text in zip("ABCD", choices)]
+                    + ["", "Answer with a single letter: A, B, C, or D."]
+                ).strip()
 
                 buffer = []
                 try:
@@ -248,7 +262,7 @@ with tab1:
                             live_holder.markdown("".join(buffer))
 
                 full_text = "".join(buffer)
-                final_answer = plain_tech._extract_letter("".join(buffer))
+                final_answer = plain_tech._extract_letter(full_text)
                 gt = _to_letter_any(row.get("answer"))
 
             elif technique == "few_shot":
@@ -259,14 +273,44 @@ with tab1:
 
             elif technique == "self_ask":
                 from mmlu.techniques.streaming import self_ask_stream
+
+                # --- Build a FULL transcript: base prompt + all follow-up questions/answers ---
+                q = (row.get("question") or "").strip()
+                choices = row.get("choices") or []
+                base_prompt = "\n".join(
+                    [q, ""]
+                    + [f"{lbl}) {text}" for lbl, text in zip("ABCD", choices)]
+                    + ["", "Answer with a single letter: A, B, C, or D."]
+                ).strip()
+
+                transcript_lines = [base_prompt, "", "=== Self-Ask Steps (live) ==="]
+                transcript_expander = st.expander("Full prompt / transcript (self-ask)", expanded=True)
+                transcript_box = transcript_expander.empty()
+                # Show initial prompt immediately
+                transcript_box.code("\n".join(transcript_lines))
+
+                # Short breadcrumbs in the timeline
                 steps_md = []
+
                 for evt in self_ask_stream(row, llm, max_steps=steps if steps else 4):
                     if evt["event"] == "step":
-                        steps_md.append(f"**Step {evt['step']}** — {evt['subq']} → {evt['proposed']}")
+                        # 1) Short live breadcrumbs
+                        steps_md.append(
+                            f"**Step {evt['step']}** — SubQ: _{evt['subq']}_ → Proposed: **{evt['proposed']}**"
+                        )
                         live_holder.markdown("\n\n".join(steps_md))
+
+                        # 2) Append to full transcript and update the expander
+                        transcript_lines.append(f"Step {evt['step']} — Q: {evt['subq']}")
+                        transcript_lines.append(f"Step {evt['step']} — A: {evt['proposed']}")
+                        transcript_box.code("\n".join(transcript_lines))
+
                     elif evt["event"] == "final":
                         final_answer = _to_letter_any(evt.get("answer"))
                         gt = _to_letter_any(row.get("answer"))
+                        # Close transcript with the final answer and re-render
+                        transcript_lines += ["", f"=== Final Answer: {final_answer} ==="]
+                        transcript_box.code("\n".join(transcript_lines))
 
             elif technique == "self_consistency":
                 from mmlu.techniques.streaming import self_consistency_stream
@@ -295,6 +339,11 @@ with tab1:
 
                 # ✅ Centralized logging
                 try:
+                    # If we built a transcript (self-ask), include it in prompt_snippet
+                    prompt_snip = None
+                    if technique == "self_ask":
+                        prompt_snip = "\n".join(transcript_lines)
+
                     Logger().append({
                         "timestamp": None,
                         "run_id": str(uuid.uuid4()),
@@ -312,21 +361,22 @@ with tab1:
                         "self_consistency_n": n_sc if technique == "self_consistency" else None,
                         "self_ask_steps": steps if technique == "self_ask" else None,
                         "few_shot_k": kshots if technique == "few_shot" else None,
-                        "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                        "output_snippet": final_answer #(tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
+                        "prompt_snippet": prompt_snip if prompt_snip is not None
+                                        else (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
+                        "output_snippet": final_answer,
                     })
                 except Exception:
                     pass
 
-                # ✅ Unified Developer Trace
-                if trace_enabled and tracer is not None:
-                    with st.expander("Developer Trace (sanitized)", expanded=False):
-                        st.markdown("**Prompt(s):**")
-                        st.code("\n\n---\n\n".join(tracer.last["prompts"][-3:]) or "(none)")
-                        st.markdown("**Outputs (last up to 10):**")
-                        st.code("\n".join(tracer.last["outputs"][-10:]) or "(none)")
+                    # ✅ Unified Developer Trace
+                    if trace_enabled and tracer is not None:
+                        with st.expander("Developer Trace (sanitized)", expanded=False):
+                            st.markdown("**Prompt(s):**")
+                            st.code("\n\n---\n\n".join(tracer.last["prompts"][-3:]) or "(none)")
+                            st.markdown("**Outputs (last up to 10):**")
+                            st.code("\n".join(tracer.last["outputs"][-10:]) or "(none)")
 
-            working.update(label="Done", state="complete")
+                working.update(label="Done", state="complete")
 
 
         else:

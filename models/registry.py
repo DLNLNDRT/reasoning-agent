@@ -3,6 +3,7 @@ from typing import List, Optional, Iterator
 import os
 import time, random
 
+
 @dataclass
 class GenOut:
     texts: List[str]
@@ -97,10 +98,31 @@ class GeminiChat(LLM):
             system_instruction="Answer concisely. For multiple choice, return only A/B/C/D.",
         )
         self.model_no_sys = GenerativeModel(model_name=self.model_name)  # no system_instruction
-        # self.safety_settings = {...}  # optional
-        self.safety_settings = None
 
-    # --- NEW: unified retry helper for transient Google API errors ---
+        # Version-compatible safety settings: typed (newer SDK) → dicts (older SDK)
+        try:
+            from google.generativeai.types import SafetySetting, HarmCategory, HarmBlockThreshold
+            self.safety_settings = [
+                SafetySetting(category=HarmCategory.HARM_CATEGORY_HARASSMENT,
+                            threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH),
+                SafetySetting(category=HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                            threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH),
+                SafetySetting(category=HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                            threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH),
+                SafetySetting(category=HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                            threshold=HarmBlockThreshold.BLOCK_ONLY_HIGH),
+            ]
+        except Exception:
+            # Older SDKs accept simple dicts
+            self.safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT",         "threshold": "BLOCK_ONLY_HIGH"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH",        "threshold": "BLOCK_ONLY_HIGH"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",  "threshold": "BLOCK_ONLY_HIGH"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT",  "threshold": "BLOCK_ONLY_HIGH"},
+            ]
+
+
+    # --- unified retry helper for transient Google API errors ---
     def _call_with_retry(self, fn, *, max_retries=4, base_sleep=3.0):
         """
         Call a function, retrying on transient Google API errors (429/500/503).
