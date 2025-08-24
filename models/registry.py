@@ -28,14 +28,18 @@ class OpenAIChat(LLM):
         self.client = OpenAI()
         self.model = model or os.getenv("FRONTIER_MODEL", "gpt-4o")
 
-    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+    def generate_stream(self, prompt: str, temperature: float = 0.0,  system: str | None = "You are a careful expert test-taker."):
         """
         Yield string chunks from OpenAI Chat Completions streaming API.
         """
-        msgs = [
-            {"role": "system", "content": "You are a careful expert test-taker."},
-            {"role": "user", "content": prompt},
-        ]
+        msgs = []
+        if system:
+            msgs.append({"role": "system", "content": system})
+        msgs.append({"role": "user", "content": prompt})
+        def _start():
+            return self.client.chat.completions.create(
+                model=self.model, messages=msgs, temperature=float(temperature), stream=True
+            )
         try:
             resp = self.client.chat.completions.create(
                 model=self.model,
@@ -58,17 +62,16 @@ class OpenAIChat(LLM):
             if fallback:
                 yield fallback
 
-    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
-        msgs = [
-            {"role": "system", "content": "You are a careful expert test-taker."},
-            {"role": "user", "content": prompt},
-        ]
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1, system: str | None = "You are a careful expert test-taker.") -> GenOut:
+        msgs = []
+        if system:
+            msgs.append({"role": "system", "content": system})
+        msgs.append({"role": "user", "content": prompt})
         resp = self.client.chat.completions.create(
             model=self.model, messages=msgs, temperature=float(temperature), n=n
         )
         texts = [c.message.content or "" for c in resp.choices]
         return GenOut(texts=texts)
-
 
 # ---------- Frontier: Google Gemini ----------
 class GeminiChat(LLM):
@@ -80,11 +83,13 @@ class GeminiChat(LLM):
         genai.configure(api_key=api_key)
 
         self.model_name = model or os.getenv("GOOGLE_MODEL", "gemini-2.5-pro")
+
         from google.generativeai import GenerativeModel
         self.model = GenerativeModel(
             model_name=self.model_name,
             system_instruction="Answer concisely. For multiple choice, return only A/B/C/D.",
         )
+        self.model_no_sys = GenerativeModel(model_name=self.model_name)  # no system_instruction
         # self.safety_settings = {...}  # optional
         self.safety_settings = None
 
@@ -117,31 +122,29 @@ class GeminiChat(LLM):
         return f"[Gemini returned no text parts; finish_reason={fr}]"
 
     # ---- non-streaming ----
-    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1, system: str | None = "default") -> GenOut:
         texts = []
+        use_model = self.model if system not in (None, "") else self.model_no_sys
         for _ in range(n):
-            resp = self.model.generate_content(
+            resp = use_model.generate_content(
                 prompt,
-                generation_config={
-                    "temperature": float(temperature),
-                    "max_output_tokens": 384 if "flash" in self.model_name else 512,
-                },
+                generation_config={"temperature": float(temperature), "max_output_tokens": 512},
                 safety_settings=self.safety_settings,
             )
             texts.append(self._extract_first_text(resp))
         return GenOut(texts=texts)
 
     # ---- streaming ----
-    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+    def generate_stream(self, prompt: str, temperature: float = 0.0, system: str | None = "default"):
+        use_model = self.model if system not in (None, "") else self.model_no_sys
         """
         Yield text chunks from Gemini streaming; if chunks have no text parts, skip them.
         On failure, fall back to a single non-streaming response.
         """
         try:
-            resp = self.model.generate_content(
+            resp = use_model.generate_content(
                 prompt,
-                generation_config={
-                    "temperature": float(temperature)},
+                generation_config={"temperature": float(temperature)},
                 safety_settings=self.safety_settings,
                 stream=True,
             )
@@ -174,7 +177,7 @@ class OllamaChat(LLM):
         self.ollama = ollama
         self.model = model or os.getenv("SMALL_MODEL", "gemma2:9b")
 
-    def generate_stream(self, prompt: str, temperature: float = 0.0) -> Iterator[str]:
+    def generate_stream(self, prompt: str, temperature: float = 0.0, system: str | None = "default"):
         """
         Yield text chunks from Ollama streaming API (chat with stream=True).
         """
@@ -186,10 +189,10 @@ class OllamaChat(LLM):
                 stream=True,
             )
             for chunk in stream:
-                msg = chunk.get("message", {})
-                t = msg.get("content", "")
-                if isinstance(t, str) and t:
-                    yield t
+                    msg = chunk.get("message", {})
+                    t = msg.get("content", "")
+                    if t:
+                        yield t
         except (StopIteration, RuntimeError):
             pass
         except Exception:
@@ -198,7 +201,7 @@ class OllamaChat(LLM):
             if fallback:
                 yield fallback
 
-    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1) -> GenOut:
+    def generate(self, prompt: str, temperature: float = 0.0, n: int = 1, system: str | None = "default") -> GenOut:
         texts = []
         for _ in range(n):
             out = self.ollama.chat(

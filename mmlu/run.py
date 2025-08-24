@@ -2,7 +2,8 @@ import numpy as np, time
 from datasets import load_dataset
 from evaluate import load as load_metric
 from models.registry import build_llm
-from mmlu.techniques import few_shot, cot, self_consistency, self_ask
+from mmlu.techniques import few_shot, cot, self_consistency, self_ask, plain_tech
+
 ACC = load_metric("accuracy")
 
 def tiny_exemplars(subject, k=3):
@@ -23,6 +24,7 @@ def tiny_exemplars(subject, k=3):
     return ex
 
 def run_subject(subject, technique, n_items=25, **params):
+    from mmlu.techniques.plain import run as plain_run
     # Build LLM from explicit provider/model
     provider = params.pop("provider")
     model = params.pop("model")
@@ -35,9 +37,7 @@ def run_subject(subject, technique, n_items=25, **params):
     for row in ds:
         t0 = time.perf_counter()
         if technique == "plain":
-            # Just ask the question directly, no special prompting
-            yhat = llm.generate(row["question"]).texts[0]
-            trace = {}
+            yhat, _ = plain_tech.run(row, llm, temperature=params.get("temperature", 0.0), letter_only=True)
         elif technique == "few_shot":
             yhat, trace = few_shot.run(row, llm, exemplars=exemplars)
         elif technique == "cot":
@@ -92,6 +92,7 @@ def run_subject_iter(subject, technique, n_items=25, **params):
     from models.registry import build_llm
     from mmlu.techniques import few_shot, cot, self_consistency, self_ask
     from .run import tiny_exemplars  # reuse
+    from mmlu.techniques.plain import run as plain_run
 
     # tracer
     try:
@@ -134,17 +135,27 @@ def run_subject_iter(subject, technique, n_items=25, **params):
 
         # run the chosen technique
         if technique == "plain":
-            yhat = llm.generate(row["question"]).texts[0].strip().upper()
+            # Minimal prompt: question + choices + 'Answer with a single letter...'
+            # No few-shot, no CoT, no self-ask, no system prompt (plain_run handles that).
+            yhat, _ = plain_tech.run(
+                row, llm,
+                temperature=params.get("temperature", 0.0),
+                letter_only=True
+            )
         elif technique == "few_shot":
             yhat, _ = few_shot.run(row, llm, exemplars=exemplars)
         elif technique == "cot":
             yhat, _ = cot.run(row, llm)
         elif technique == "self_consistency":
             yhat, _ = self_consistency.run(
-                row, llm, n=params.get("n", 7), temperature=params.get("temperature", 0.8))
+                row, llm, 
+                n=params.get("n", 7), 
+                temperature=params.get("temperature", 0.8))
         elif technique == "self_ask":
             yhat, _ = self_ask.run(
-                row, llm, max_steps=params.get("max_steps", 4), temperature=params.get("temperature", 0.3))
+                row, llm, 
+                max_steps=params.get("max_steps", 4), 
+                temperature=params.get("temperature", 0.3))
         else:
             # Fallback: just run plain if technique not recognized
             raw = llm.generate(row["question"]).texts[0]

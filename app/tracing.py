@@ -118,36 +118,52 @@ class TracingLLM:
         self.llm = llm
         self.last = {"prompts": [], "outputs": []}
 
+    def reset(self):
+        """Clear stored prompts/outputs before a new run."""
+        self.last = {"prompts": [], "outputs": []}
+
+
     # Non-streaming
     def generate(self, prompt: str, **kwargs):
-        # (unchanged) – keep your existing redact/sanitize here
+        # Reset before recording
+        self.reset()
         red_prompt = _redact_prompt(prompt)
         self.last["prompts"].append(red_prompt)
+
         out = self.llm.generate(prompt, **kwargs)
-        text = getattr(out, "text", out if isinstance(out, str) else str(out))
+        if hasattr(out, "texts"):  # GenOut
+            text = out.texts[0] if out.texts else ""
+        elif isinstance(out, str):
+            text = out
+        else:
+            text = str(out)
+
         self.last["outputs"].append(_sanitize_output(text))
         return out
 
     # Streaming
     def generate_stream(self, prompt: str, **kwargs):
-        """
-        Yield STRING chunks (not raw SDK objects). Robust to StopIteration-return patterns.
-        Also collect a safe summary for the dev trace.
-        """
+        # Reset before recording
+        self.reset()
         self.last["prompts"].append(_redact_prompt(prompt))
+
         letters_seen, final_text_parts = [], []
 
-        # Fallback to non-streaming if backend lacks streaming
         if not hasattr(self.llm, "generate_stream"):
             try:
                 out = self.llm.generate(prompt, **kwargs)
-                text = getattr(out, "text", out if isinstance(out, str) else str(out))
+                if hasattr(out, "texts"):
+                    text = out.texts[0] if out.texts else ""
+                elif isinstance(out, str):
+                    text = out
+                else:
+                    text = str(out)
             except Exception:
                 text = ""
             if text:
                 final_text_parts.append(text)
                 letters_seen.extend(re.findall(r"\b([ABCD])\b", text))
-                yield text  # yield a single string chunk
+                yield text
         else:
             try:
                 iterator = self.llm.generate_stream(prompt, **kwargs)
@@ -156,12 +172,10 @@ class TracingLLM:
                     if text:
                         final_text_parts.append(text)
                         letters_seen.extend(re.findall(r"\b([ABCD])\b", text))
-                        yield text  # IMPORTANT: yield string chunks
+                        yield text
             except (StopIteration, RuntimeError):
-                # Some SDKs 'return value' from generators -> surfaces as RuntimeError per PEP 479
                 pass
 
-        # Summarize for the dev trace
         if letters_seen:
             self.last["outputs"].append(letters_seen[-1])
         elif final_text_parts:

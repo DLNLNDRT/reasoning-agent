@@ -13,7 +13,7 @@ from datasets import get_dataset_config_names, load_dataset
 
 from eval.logger import Logger
 from models.registry import build_llm
-from mmlu.techniques import few_shot, cot, self_consistency, self_ask
+from mmlu.techniques import few_shot, cot, self_consistency, self_ask, plain_tech
 from mmlu.run import run_subject, tiny_exemplars, run_subject_iter
 
 TECHNIQUE_COLORS = {
@@ -59,11 +59,11 @@ def _safe_join_lines(items, limit=None):
 
 st.set_page_config(page_title="Reasoning Agent (MMLU)", layout="wide")
 
-st.title("Reasoning Agent — MMLU with Transparent Traces")
-st.caption(
-    "Compare frontier (hosted) and small (local) models on the MMLU benchmark using four prompting techniques. "
-    "Enable *Live mode* to watch reasoning updates (votes/steps/status) while the model thinks."
-)
+#st.title("Reasoning Agent — MMLU with Transparent Traces")
+#st.caption(
+#    "Compare frontier (hosted) and small (local) models on the MMLU benchmark using four prompting techniques. "
+#    "Enable *Live mode* to watch reasoning updates (votes/steps/status) while the model thinks."
+#)
 
 # ---------- Subjects ----------
 # Using the actively maintained 'cais/mmlu' dataset.
@@ -219,74 +219,84 @@ with tab1:
     result_box = st.empty()
     trace_box = st.container()
 
+
     if solve_clicked:
         if live_mode:
-            # ----- LIVE (streaming) path -----
             st.info(f"Using **{chosen}** with **{technique}** (live).")
             timeline = st.expander("Live reasoning timeline", expanded=True)
             live_holder = timeline.empty()
             working = st.status("Working… streaming reasoning.", state="running")
 
+            final_answer, gt = None, None
+
+            if tracer: tracer.reset()
+
             if technique == "plain":
-                # Plain = ask question directly and stream answer
-                live_holder.markdown("**Streaming raw model output...**")
+                # build prompt: question + choices
+                q = (row.get("question") or "").strip()
+                choices = row.get("choices") or []
+                prompt = "\n".join([q, ""] + [f"{lbl}) {text}" for lbl, text in zip("ABCD", choices)] +
+                                ["", "Answer with a single letter: A, B, C, or D."]).strip()
+
                 buffer = []
-                for chunk in llm.generate_stream(row["question"], temperature=0.0):
-                    buffer.append(chunk)
-                    # Show partial output while streaming
-                    live_holder.markdown("".join(buffer))
-                final_answer = _to_letter_any("".join(buffer))
-                gt_letter    = _to_letter_any(row.get("answer"))
-                mark = "✅" if final_answer == gt_letter else "❌"
-                result_box.success(
-                    f"Final answer: **{final_answer}** · Correct Answer: **{gt_letter}** {mark}"
-                )
-
                 try:
-                    Logger().append({
-                        "timestamp": None,
-                        "run_id": str(uuid.uuid4()),
-                        "mode": "single",
-                        "provider": frontier_provider if model_family == "Frontier" else "ollama",
-                        "model": frontier_model if model_family == "Frontier" else small_model,
-                        "family": "frontier" if model_family == "Frontier" else "small",
-                        "technique": "plain",
-                        "subject": subj,
-                        "question_index": int(i),
-                        "prediction": final_answer,
-                        "reference": gt_letter,
-                        "correct": int(final_answer == gt_letter),
-                        "latency_sec": None,
-                        "self_consistency_n": None,
-                        "self_ask_steps": None,
-                        "few_shot_k": None,
-                        "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                        "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
-                    })
-                except Exception:
-                    pass
+                    stream = llm.generate_stream(prompt, temperature=0.0, system=None)
+                except TypeError:
+                    stream = llm.generate_stream(prompt, temperature=0.0)
 
-                # ⬇️ Developer trace (sanitized)
-                if trace_enabled and tracer is not None:
-                    with st.expander("Developer Trace (sanitized)", expanded=False):
-                        st.markdown("**Prompt:**")
-                        st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
-                        st.markdown("**Outputs (last up to 10):**")
-                        st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
+                for chunk in stream:
+                    if chunk:
+                        buffer.append(chunk)
+                        if len(buffer) % 4 == 0:
+                            live_holder.markdown("".join(buffer))
 
-                working.update(label="Done", state="complete")
+                full_text = "".join(buffer)
+                final_answer = _to_letter_any(full_text)
+                gt = _to_letter_any(row.get("answer"))
 
-            if technique == "few_shot":
-                # Few-shot is static: show exemplars and final result
-                ex = tiny_exemplars(subj, k=kshots if kshots is not None else 3)
-                live_holder.markdown(f"**Exemplars used:** `{[e['id'] for e in ex]}`")
+            elif technique == "few_shot":
+                ex = tiny_exemplars(subj, k=kshots if kshots else 3)
                 yhat, _ = few_shot.run(row, llm, exemplars=ex)
-                
-                pred = _to_letter_any(yhat)
-                gt   = _to_letter_any(row.get("answer"))
-                mark = "✅" if pred == gt else "❌"
-                result_box.success(f"Final answer: **{pred}** · Correct Answer: **{gt}** {mark}")
-                
+                final_answer = _to_letter_any(yhat)
+                gt = _to_letter_any(row.get("answer"))
+
+            elif technique == "self_ask":
+                from mmlu.techniques.streaming import self_ask_stream
+                steps_md = []
+                for evt in self_ask_stream(row, llm, max_steps=steps if steps else 4):
+                    if evt["event"] == "step":
+                        steps_md.append(f"**Step {evt['step']}** — {evt['subq']} → {evt['proposed']}")
+                        live_holder.markdown("\n\n".join(steps_md))
+                    elif evt["event"] == "final":
+                        final_answer = _to_letter_any(evt.get("answer"))
+                        gt = _to_letter_any(row.get("answer"))
+
+            elif technique == "self_consistency":
+                from mmlu.techniques.streaming import self_consistency_stream
+                for evt in self_consistency_stream(row, llm, n=n_sc if n_sc else 7, temperature=0.8):
+                    if evt["event"] == "vote":
+                        live_holder.markdown(f"Votes so far: {evt['tally']}")
+                    elif evt["event"] == "final":
+                        final_answer = _to_letter_any(evt.get("answer"))
+                        gt = _to_letter_any(row.get("answer"))
+
+            else:  # cot
+                from mmlu.techniques.streaming import cot_sanitized_stream
+                status = []
+                for evt in cot_sanitized_stream(row, llm):
+                    if evt["event"] == "status":
+                        status.append(f"- {evt['msg']}")
+                        live_holder.markdown("\n".join(status))
+                    elif evt["event"] == "final":
+                        final_answer = _to_letter_any(evt.get("answer"))
+                        gt = _to_letter_any(row.get("answer"))
+
+            # ✅ Unified result output
+            if final_answer is not None:
+                mark = "✅" if final_answer == gt else "❌"
+                result_box.success(f"Final answer: **{final_answer}** · Correct Answer: **{gt}** {mark}")
+
+                # ✅ Centralized logging
                 try:
                     Logger().append({
                         "timestamp": None,
@@ -298,294 +308,136 @@ with tab1:
                         "technique": technique,
                         "subject": subj,
                         "question_index": int(i),
-                        "prediction": pred,
+                        "prediction": final_answer,
                         "reference": gt,
-                        "correct": int(pred == gt),
+                        "correct": int(final_answer == gt),
                         "latency_sec": None,
                         "self_consistency_n": n_sc if technique == "self_consistency" else None,
                         "self_ask_steps": steps if technique == "self_ask" else None,
                         "few_shot_k": kshots if technique == "few_shot" else None,
                         "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
                         "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
-
                     })
                 except Exception:
                     pass
-                
-                # ⬇️ Developer trace (sanitized)
+
+                # ✅ Unified Developer Trace
                 if trace_enabled and tracer is not None:
                     with st.expander("Developer Trace (sanitized)", expanded=False):
-                        st.markdown("**Prompt:**")
-                        st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
+                        st.markdown("**Prompt(s):**")
+                        st.code("\n\n---\n\n".join(tracer.last["prompts"][-3:]) or "(none)")
                         st.markdown("**Outputs (last up to 10):**")
-                        st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
+                        st.code("\n".join(tracer.last["outputs"][-10:]) or "(none)")
 
-                working.update(label="Done", state="complete")
+            working.update(label="Done", state="complete")
 
-            elif technique == "self_ask":
-                from mmlu.techniques.streaming import self_ask_stream
-                steps_md = []
-                final_answer = None
-                for evt in self_ask_stream(row, llm, max_steps=steps if steps else 4):
-                    if evt["event"] == "step":
-                        steps_md.append(
-                            f"**Step {evt['step']}** — SubQ: _{evt['subq']}_ → Proposed: **{evt['proposed']}**"
-                        )
-                        live_holder.markdown("\n\n".join(steps_md))
-                    elif evt["event"] == "final":
-                        final_answer = _to_letter_any(evt.get("answer"))
-                        gt = _to_letter_any(row.get("answer"))
-                        mark = "✅" if final_answer == gt else "❌"
-                        result_box.success(f"Final answer: **{final_answer}** · Correct Answer: **{gt}** {mark}")
-
-                    if trace_enabled and tracer is not None:
-                        tracer.last["outputs"].append(final_answer)
-
-                if final_answer is not None:
-                    try:
-                        Logger().append({
-                            "timestamp": None,
-                            "run_id": str(uuid.uuid4()),
-                            "mode": "single",
-                            "provider": frontier_provider if model_family == "Frontier" else "ollama",
-                            "model": frontier_model if model_family == "Frontier" else small_model,
-                            "family": "frontier" if model_family == "Frontier" else "small",
-                            "technique": technique,
-                            "subject": subj,
-                            "question_index": int(i),
-                            "prediction": final_answer,
-                            "reference": _to_letter_any(row.get("answer")),
-                            "correct": int(final_answer == _to_letter_any(row.get("answer"))),
-                            "latency_sec": None,
-                            "self_consistency_n": n_sc if technique == "self_consistency" else None,
-                            "self_ask_steps": steps if technique == "self_ask" else None,
-                            "few_shot_k": kshots if technique == "few_shot" else None,
-                            "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                            "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
-
-                        })
-                    except Exception:
-                        pass
-
-                    # ⬇️ Developer trace (sanitized)
-                    if trace_enabled and tracer is not None:
-                        with st.expander("Developer Trace (sanitized)", expanded=False):
-                            st.markdown("**Prompt:**")
-                            st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
-                            st.markdown("**Outputs (last up to 10):**")
-                            st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
-
-                working.update(label="Done", state="complete")
-
-            elif technique == "self_consistency":
-                from mmlu.techniques.streaming import self_consistency_stream
-                votes_md = []
-                final_answer = None
-
-                for evt in self_consistency_stream(row, llm, n=n_sc if n_sc else 7, temperature=0.8):
-                    if evt["event"] == "vote":
-                        t = evt["tally"]
-                        votes_md = [
-                            f"Votes: A={t.get('A',0)}  B={t.get('B',0)}  C={t.get('C',0)}  D={t.get('D',0)}",
-                            f"Latest sample #{evt['i']} → **{evt['letter']}**",
-                        ]
-                        live_holder.markdown("\n\n".join(votes_md))
-
-                    elif evt["event"] == "final":
-                        t = evt["tally"]
-                        live_holder.markdown(
-                            f"**Final tally:** A={t.get('A',0)}  B={t.get('B',0)}  C={t.get('C',0)}  D={t.get('D',0)}"
-                        )
-
-                        # Always normalize BOTH model prediction and dataset GT to LETTERS
-                        final_answer = _to_letter_any(evt.get("answer"))
-                        gt_letter    = _to_letter_any(row.get("answer"))
-                        mark = "✅" if final_answer == gt_letter else "❌"
-                        result_box.success(
-                            f"Final answer: **{final_answer}** · Correct Answer: **{gt_letter}** {mark}"
-                        )
-                        # Fallback: ensure tracer shows the final output
-                        if trace_enabled and tracer is not None:
-                            tracer.last["outputs"].append(final_answer)
-
-                if final_answer is not None:
-                    try:
-                        ref_letter = _to_letter_any(row.get("answer"))  # <-- ensure letter
-                        Logger().append({
-                            "timestamp": None,
-                            "run_id": str(uuid.uuid4()),
-                            "mode": "single",
-                            "provider": frontier_provider if model_family == "Frontier" else "ollama",
-                            "model": frontier_model if model_family == "Frontier" else small_model,
-                            "family": "frontier" if model_family == "Frontier" else "small",
-                            "technique": technique,
-                            "subject": subj,
-                            "question_index": int(i),
-                            "prediction": final_answer,    
-                            "reference": ref_letter,
-                            "correct": int(final_answer == ref_letter),
-                            "latency_sec": None,
-                            "self_consistency_n": n_sc if technique == "self_consistency" else None,
-                            "self_ask_steps": steps if technique == "self_ask" else None,
-                            "few_shot_k": kshots if technique == "few_shot" else None,
-                            "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                            "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
-                        })
-                    except Exception:
-                        pass
-
-
-                    # ⬇️ Developer trace (sanitized)
-                    if trace_enabled and tracer is not None:
-                        with st.expander("Developer Trace (sanitized)", expanded=False):
-                            st.markdown("**Prompt:**")
-                            st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
-                            st.markdown("**Outputs (last up to 10):**")
-                            st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
-
-                working.update(label="Done", state="complete")
-
-            else:  # technique == "cot" (sanitized streaming)
-                from mmlu.techniques.streaming import cot_sanitized_stream
-                status = []
-                final_answer = None
-                for evt in cot_sanitized_stream(row, llm):
-                    if evt["event"] == "status":
-                        status.append(f"- {evt['msg']}")
-                        live_holder.markdown("\n".join(status))
-                    elif evt["event"] == "final":
-                        final_answer = _to_letter_any(evt.get("answer"))
-                        gt = _to_letter_any(row.get("answer"))
-                        mark = "✅" if final_answer == gt else "❌"
-                        result_box.success(f"Final answer: **{final_answer}** · Correct Answer: **{gt}** {mark}")
-
-                    if trace_enabled and tracer is not None:
-                        tracer.last["outputs"].append(final_answer)
-
-                if final_answer is not None:
-                    try:
-                        Logger().append({
-                            "timestamp": None,
-                            "run_id": str(uuid.uuid4()),
-                            "mode": "single",
-                            "provider": frontier_provider if model_family == "Frontier" else "ollama",
-                            "model": frontier_model if model_family == "Frontier" else small_model,
-                            "family": "frontier" if model_family == "Frontier" else "small",
-                            "technique": technique,
-                            "subject": subj,
-                            "question_index": int(i),
-                            "prediction": final_answer,
-                            "reference": _to_letter_any(row.get("answer")),
-                            "correct": int(final_answer == r_to_letter_any(row.get("answer"))),
-                            "latency_sec": None,
-                            "self_consistency_n": n_sc if technique == "self_consistency" else None,
-                            "self_ask_steps": steps if technique == "self_ask" else None,
-                            "few_shot_k": kshots if technique == "few_shot" else None,
-                            "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                            "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
-
-                        })
-                    except Exception:
-                        pass
-
-                    # ⬇️ Developer trace (sanitized)
-                    if trace_enabled and tracer is not None:
-                        with st.expander("Developer Trace (sanitized)", expanded=False):
-                            st.markdown("**Prompt:**")
-                            st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
-                            st.markdown("**Outputs (last up to 10):**")
-                            st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
-                            
-                working.update(label="Done", state="complete")
 
         else:
             # ----- INSTANT (non-streaming) path -----
             st.info(f"Using **{chosen}** with **{technique}** (instant).")
             with st.spinner("Solving…"):
+                final_answer, gt, trace = None, None, {}
+
                 if technique == "plain":
-                    # Just ask the model directly
-                    yhat = llm.generate(row["question"]).texts[0].strip().upper()
+                    from mmlu.techniques import plain_tech
+                    yhat, t = plain_tech.run(row, llm, temperature=0.0, letter_only=True)
+                    final_answer = _to_letter_any(yhat)
+                    gt = _to_letter_any(row.get("answer"))
                     trace = {
                         "plan": {"technique": "plain"},
-                        "deliberation": {"summary": "Asked the question directly with no reasoning technique."},
+                        "deliberation": {"summary": "Asked the question directly (no system prompt, no few-shot)."},
                     }
-                if technique == "few_shot":
+
+                elif technique == "few_shot":
                     ex = tiny_exemplars(subj, k=kshots if kshots is not None else 3)
                     yhat, _ = few_shot.run(row, llm, exemplars=ex)
+                    final_answer = _to_letter_any(yhat)
+                    gt = _to_letter_any(row.get("answer"))
                     trace = {
                         "plan": {"technique": "few_shot", "k": len(ex)},
                         "deliberation": {"exemplar_ids": [e["id"] for e in ex]},
                     }
+
                 elif technique == "cot":
                     yhat, _ = cot.run(row, llm)
+                    final_answer = _to_letter_any(yhat)
+                    gt = _to_letter_any(row.get("answer"))
                     trace = {
                         "plan": {"technique": "cot"},
                         "deliberation": {"summary": "Reasoned privately, then chose a final letter."},
                     }
+
                 elif technique == "self_consistency":
                     n = n_sc if n_sc is not None else 7
                     yhat, t = self_consistency.run(row, llm, n=n)
+                    final_answer = _to_letter_any(yhat)
+                    gt = _to_letter_any(row.get("answer"))
                     trace = {
                         "plan": {"technique": "self_consistency", "n": n},
                         "votes": t["votes"],
                     }
-                else:  # self_ask
+
+                elif technique == "self_ask":
                     s = steps if steps is not None else 4
                     yhat, t = self_ask.run(row, llm, max_steps=s)
+                    final_answer = _to_letter_any(yhat)
+                    gt = _to_letter_any(row.get("answer"))
                     trace = {
                         "plan": {"technique": "self_ask", "steps": s},
                         "breadcrumbs": t["steps"],
                     }
 
-                    pred = _to_letter_any(yhat)
-                    gt   = _to_letter_any(row.get("answer"))
-                    mark = "✅" if pred == gt else "❌"
-                    result_box.success(f"Final answer: **{pred}** · Correct Answer: **{gt}** {mark}")
-            try:
-                Logger().append({
-                    "timestamp": None,
-                    "run_id": str(uuid.uuid4()),
-                    "mode": "single",
-                    "provider": frontier_provider if model_family == "Frontier" else "ollama",
-                    "model": frontier_model if model_family == "Frontier" else small_model,
-                    "family": "frontier" if model_family == "Frontier" else "small",
-                    "technique": technique,
-                    "subject": subj,
-                    "question_index": int(i),
-                    "prediction": pred,
-                    "reference": gt,
-                    "correct": int(pred == gt),
-                    "latency_sec": None,
-                    "self_consistency_n": n_sc if technique == "self_consistency" else None,
-                    "self_ask_steps": steps if technique == "self_ask" else None,
-                    "few_shot_k": kshots if technique == "few_shot" else None,
-                    "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
-                    "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
+            # ✅ Unified result display
+            if final_answer is not None:
+                mark = "✅" if final_answer == gt else "❌"
+                result_box.success(f"Final answer: **{final_answer}** · Correct Answer: **{gt}** {mark}")
 
-                })
-            except Exception:
-                pass
-                    
-            # ⬇️ Developer trace (sanitized)
-            if trace_enabled and tracer is not None:
-                with st.expander("Developer Trace (sanitized)", expanded=False):
-                    st.markdown("**Prompt:**")
-                    st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
-                    st.markdown("**Outputs (last up to 10):**")
-                    st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
+                # ✅ Unified logging
+                try:
+                    Logger().append({
+                        "timestamp": None,
+                        "run_id": str(uuid.uuid4()),
+                        "mode": "single",
+                        "provider": frontier_provider if model_family == "Frontier" else "ollama",
+                        "model": frontier_model if model_family == "Frontier" else small_model,
+                        "family": "frontier" if model_family == "Frontier" else "small",
+                        "technique": technique,
+                        "subject": subj,
+                        "question_index": int(i),
+                        "prediction": final_answer,
+                        "reference": gt,
+                        "correct": int(final_answer == gt),
+                        "latency_sec": None,
+                        "self_consistency_n": n_sc if technique == "self_consistency" else None,
+                        "self_ask_steps": steps if technique == "self_ask" else None,
+                        "few_shot_k": kshots if technique == "few_shot" else None,
+                        "prompt_snippet": (tracer.last["prompts"][-1] if (tracer and tracer.last["prompts"]) else None),
+                        "output_snippet": (tracer.last["outputs"][-1] if (tracer and tracer.last["outputs"]) else None),
+                    })
+                except Exception:
+                    pass
 
-            trace_box.write("#### Transparency (sanitized)")
-            trace_box.caption(
-                "We show plan, exemplars, votes, and self-ask breadcrumbs, but do not display raw chain-of-thought text."
-            )
-            if technique != "few_shot":  # few_shot path above didn't set t if not needed
+                # ✅ Unified Developer Trace
+                if trace_enabled and tracer is not None:
+                    with st.expander("Developer Trace (sanitized)", expanded=False):
+                        st.markdown("**Prompt(s):**")
+                        st.code(_safe_join_lines(tracer.last["prompts"], limit=3), language="markdown")
+                        st.markdown("**Outputs (last up to 10):**")
+                        st.code(_safe_join_lines(tracer.last["outputs"], limit=10))
+
+                # ✅ Unified Transparency JSON
+                trace_box.write("#### Transparency (sanitized)")
+                trace_box.caption(
+                    "We show plan, exemplars, votes, and self-ask breadcrumbs, but do not display raw chain-of-thought text."
+                )
                 trace_box.json(trace)
+
 
 # ------------- Tab 2 -------------
 with tab2:
     st.subheader("Batch Evaluation")
     st.caption(
-        "Default technique = **plain** (direct question answering)"
+        "Default technique = **plain** (direct question answering).  \n"
         f"Currently running with **{frontier_provider}:{frontier_model}**.  \n"
         "Evaluate multiple questions per subject with live progress. "
         "Bars show per-subject status; the table updates as each subject finishes."
@@ -618,7 +470,6 @@ with tab2:
         completed = 0
 
         for subj in picks:
-            # Pick technique color (fallback gray if not found)
             tech_color = TECHNIQUE_COLORS.get(technique, "#666666")
 
             st.markdown(
@@ -644,14 +495,14 @@ with tab2:
             if technique == "few_shot":
                 params["k_shots"] = kshots if kshots is not None else 3
 
-            lines = []
-            n_total = None
-            done = 0
+            lines, n_total, done = [], None, 0
 
+            # ✅ iterate with run_subject_iter (logger handles logging internally)
             for evt in run_subject_iter(subj, technique, n_items=n_items, **params):
                 if evt["event"] == "start":
                     n_total = evt["n"]
                     pbar.progress(0, text=f"{subj}: 0/{n_total}")
+
                 elif evt["event"] == "item":
                     done = evt["i"]
 
@@ -659,19 +510,16 @@ with tab2:
                     gt   = _to_letter_any(evt.get("ref"))
                     mark = "✅" if pred == gt else "❌"
 
-                    # Base line: prediction, GT, elapsed, correctness
-                    tech_color = TECHNIQUE_COLORS.get(technique, "#666666")  # get technique color
-
+                    # Row summary (color-coded by technique)
                     line = (
                         f"q {evt['i']:>2}/{n_total}: "
                         f"<span style='color:{tech_color}'>predicted **{pred}**</span> · "
                         f"Correct Answer **{gt}** — {evt['elapsed']:.2f}s {mark}"
                     )
 
-                    # If tracing is enabled and snippets are available, append them
+                    # Append snippets if trace enabled
                     if trace_enabled:
-                        psnip = evt.get("prompt_snippet")
-                        osnip = evt.get("output_snippet")
+                        psnip, osnip = evt.get("prompt_snippet"), evt.get("output_snippet")
                         if psnip or osnip:
                             line += "<br/>"
                             if psnip:
@@ -698,10 +546,18 @@ with tab2:
             )
 
         st.success("Batch complete.")
-        st.caption("Accuracy is exact match of the answer letter. p50 latency is median time per question.")
+        st.caption("Accuracy = exact match of the answer letter. p50 latency = median time per question.")
 
-    elif run_batch:
-        st.warning("Please select at least one subject to run.")
+        # 🔎 Batch-level developer trace
+        if trace_enabled:
+            import pandas as pd
+            st.markdown("### Batch Developer Trace (last 20 prompts/outputs)")
+            df = pd.read_csv("results/log.csv")
+            df = df[df["run_id"] == run_id]  # only current run
+            trace_df = df[["subject","question_index","technique","prediction","reference","prompt_snippet","output_snippet"]].dropna(how="all", subset=["prompt_snippet","output_snippet"])
+            trace_df = trace_df.tail(20)  # only last 20 for readability
+            st.dataframe(trace_df, use_container_width=True)
+
 
 # ------------- Tab 3 -------------
 with tab3:
@@ -720,6 +576,15 @@ with tab3:
     if not os.path.exists(path):
         st.info("No results yet. Run a single question or batch to start logging.")
     else:
+        # --- Clear logs button ---
+        col1, col2 = st.columns([1,4])
+        if col1.button("🗑️ Clear Logs", help="Delete all results in results/log.csv"):
+            try:
+                open(path, "w").close()  # empties the file but keeps it
+                st.success("Logs cleared successfully.")
+            except Exception as e:
+                st.error(f"Failed to clear logs: {e}")
+
         df = pd.read_csv(path)
 
         # Basic cleaning/casting
