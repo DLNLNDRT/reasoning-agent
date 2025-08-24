@@ -1,5 +1,5 @@
 timestamp,run_id,mode,provider,model,family,technique,subject,question_index,prediction,reference,correct,latency_sec,self_consistency_n,self_ask_steps,few_shot_k,prompt_snippet,output_snippet
-1756035780,c25624b5-b9a5-49d2-84c4-40f57439a834,single,ollama,gemma2:9b,small,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
+1756037227,d51b07e6-3190-4303-ba22-d144a64e5454,single,ollama,gemma2:9b,small,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
 
 A) strength.
 B) power.
@@ -7,7 +7,7 @@ C) stride length.
 D) stamina.
 
 Answer with a single letter: A, B, C, or D.",D
-1756035795,180ee902-845f-4cc9-a376-f2bbb3411b96,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
+1756037242,e4eb1f88-4467-4e27-af27-c490618c667d,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
 
 A) strength.
 B) power.
@@ -15,7 +15,7 @@ C) stride length.
 D) stamina.
 
 Answer with a single letter: A, B, C, or D.",D
-1756035855,869d4d0d-7dba-4f94-934f-52a4027aa413,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
+1756037280,08b02403-24bc-4d74-b4a3-546ebc3a061b,single,openai,gpt-4o-mini,frontier,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
 
 A) strength.
 B) power.
@@ -23,15 +23,15 @@ C) stride length.
 D) stamina.
 
 Answer with a single letter: A, B, C, or D.",D
-1756036073,1326c128-5774-443f-af28-5529ff725d61,single,ollama,llama3:8b,small,plain,clinical_knowledge,0,A,A,1,,,,,"What size of cannula would you use in a patient who needed a rapid blood transfusion (as of 2020 medical knowledge)?
+1756037293,fa6b5009-d0de-4217-9c77-d28ddda3524b,single,google,gemini-1.5-flash,frontier,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
 
-A) 18 gauge.
-B) 20 gauge.
-C) 22 gauge.
-D) 24 gauge.
+A) strength.
+B) power.
+C) stride length.
+D) stamina.
 
-Answer with a single letter: A, B, C, or D.",A
-1756036089,6674bf98-60bf-4e81-a7e2-58662a122db4,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D,D,1,,,,,"The key attribute in successful marathon running is:
+Answer with a single letter: A, B, C, or D.",D
+1756037372,f04c32c4-2fa7-49a6-9645-d81ca69d008f,single,ollama,llama3:8b,small,plain,clinical_knowledge,1,D) STAMINA.,D,0,,,,,"The key attribute in successful marathon running is:
 
 A) strength.
 B) power.

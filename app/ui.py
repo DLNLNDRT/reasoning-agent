@@ -59,12 +59,6 @@ def _safe_join_lines(items, limit=None):
 
 st.set_page_config(page_title="Reasoning Agent (MMLU)", layout="wide")
 
-#st.title("Reasoning Agent — MMLU with Transparent Traces")
-#st.caption(
-#    "Compare frontier (hosted) and small (local) models on the MMLU benchmark using four prompting techniques. "
-#    "Enable *Live mode* to watch reasoning updates (votes/steps/status) while the model thinks."
-#)
-
 # ---------- Subjects ----------
 # Using the actively maintained 'cais/mmlu' dataset.
 SUBJECTS = [s for s in get_dataset_config_names("cais/mmlu") if s[:1].isalpha()]
@@ -219,7 +213,6 @@ with tab1:
     result_box = st.empty()
     trace_box = st.container()
 
-
     if solve_clicked:
         if live_mode:
             st.info(f"Using **{chosen}** with **{technique}** (live).")
@@ -251,7 +244,7 @@ with tab1:
                             live_holder.markdown("".join(buffer))
 
                 full_text = "".join(buffer)
-                final_answer = _to_letter_any(full_text)
+                ffinal_answer = plain_tech._extract_letter("".join(buffer))
                 gt = _to_letter_any(row.get("answer"))
 
             elif technique == "few_shot":
